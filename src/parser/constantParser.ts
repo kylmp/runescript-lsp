@@ -14,7 +14,7 @@ export interface ConstantFile {
   constants: Map<number, ConstantWord[]>
 }
 
-export const constantFileParser = (request: ParseRequest): ParseResult => {
+export const constantFileParser = (request: ParseRequest): ParseResult | undefined => {
   const constants = new Map<number, ConstantWord[]>();
 
   request.lines.forEach((line, lineNumber) => {

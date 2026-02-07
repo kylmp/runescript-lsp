@@ -10,7 +10,7 @@ export interface PackFile {
   packLines: Map<number, PackData>
 }
 
-export const packFileParser = (request: ParseRequest): ParseResult => {
+export const packFileParser = (request: ParseRequest): ParseResult | undefined => {
   const packLines = new Map<number, PackData>();
 
   request.lines.forEach((line, lineNumber) => {

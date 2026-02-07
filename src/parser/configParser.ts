@@ -7,7 +7,9 @@ import { type ParseRequest, type ParseResult, ParserKind } from "./parser.js";
 enum ConfigWordType {
   Definition = "definition",
   Key = "key",
-  Value = "value"
+  Value = "value",
+  GameVar = "gamevar",
+  Constant = "constant"
 }
 
 interface ConfigWord extends ParsedWord {
@@ -27,14 +29,14 @@ export interface ConfigFile {
   configItems: ConfigItem[]
 }
 
-export const gameVarFileParser = (request: ParseRequest): ParseResult => {
+export const gameVarFileParser = (request: ParseRequest): ParseResult | undefined => {
   const result = configFileParser(request);
   if (!result) return undefined;
   result.kind = ParserKind.Gamevar;
   return result;
 }
 
-export const configFileParser = (request: ParseRequest): ParseResult => {
+export const configFileParser = (request: ParseRequest): ParseResult | undefined => {
   const fileConfigData = getFileConfigData(request.fileInfo.type);
   const fileSymbol = fileTypeToSymbolType(request.fileInfo.type);
   const displayKeys = fileSymbol ? getConfigInclusions(fileSymbol) ?? [] : [];
@@ -133,13 +135,29 @@ function parseKeyValueWords(line: string, key: string, equalsIndex: number, keyS
       }
       const leadingSpaceMatch = part.match(/^\s*/);
       const leadingSpace = leadingSpaceMatch ? leadingSpaceMatch[0].length : 0;
-      const start = valueStartOffset + cursor + leadingSpace;
-      const end = start + trimmed.length;
+      let start = valueStartOffset + cursor + leadingSpace;
+      let end = start + trimmed.length;
+      let text = trimmed;
+      let type = ConfigWordType.Value;
+
+      if (!trimmed.startsWith("\"") && trimmed.length > 1) {
+        const first = trimmed[0];
+        if (first === "%") {
+          type = ConfigWordType.GameVar;
+          text = trimmed.slice(1);
+          start += 1;
+        } else if (first === "^") {
+          type = ConfigWordType.Constant;
+          text = trimmed.slice(1);
+          start += 1;
+        }
+      }
+
       words.push({
-        text: trimmed,
+        text,
         start,
         end,
-        type: ConfigWordType.Value,
+        type,
         valueIndex: i
       });
       cursor += part.length + 1;

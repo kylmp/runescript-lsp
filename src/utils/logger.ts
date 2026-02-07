@@ -1,4 +1,5 @@
 import type { Connection } from "vscode-languageserver/node.js";
+import { isDevMode } from "./settingsUtils.js";
 
 let connection: Connection | undefined;
 
@@ -6,22 +7,22 @@ export function initLogger(conn: Connection): void {
   connection = conn;
 }
 
-function prefix(message: string): string {
-  return `[runescript-lsp] ${message}`;
+function prefix(message: string, type?: string): string {
+  return type? `[runescript-lsp] ${type}: ${message}` : `[runescript-lsp] ${message}`;
 }
 
 export function log(message: string): void {
-  connection?.console.log(prefix(message));
+  if (isDevMode()) connection?.console.log(prefix(message));
 }
 
 export function info(message: string): void {
-  connection?.console.info(prefix(message));
+  if (isDevMode()) connection?.console.log(prefix(message, ' info'));
 }
 
 export function warn(message: string): void {
-  connection?.console.warn(prefix(message));
+  if (isDevMode()) connection?.console.log(prefix(message, ' warn'));
 }
 
 export function error(message: string): void {
-  connection?.console.error(prefix(message));
+  if (isDevMode()) connection?.console.log(prefix(message, 'error'));
 }

@@ -1,13 +1,14 @@
 import { createConnection, TextDocuments, ProposedFeatures, InitializeParams, InitializeResult, TextDocumentSyncKind, DidChangeConfigurationNotification } from "vscode-languageserver/node.js";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { URI } from "vscode-uri";
-import { registerDefinitionHandler } from "./handlers/definition.js";
-import { registerFileEventHandlers } from "./handlers/fileEvents.js";
+import { registerDefinitionHandler } from "./handler/definition.js";
+import { registerFileEventHandlers } from "./handler/fileEvents.js";
+import { registerGitEventHandlers } from "./handler/gitEvents.js";
 import { setDocuments } from "./utils/documentUtils.js";
-import { registerSettingsChangeHandlers } from "./handlers/settingsEvents.js";
+import { registerSettingsChangeHandlers } from "./handler/settingsEvents.js";
 import { setWorkspaceFolders } from "./utils/workspaceUtils.js";
-import { COMMAND_IDS, registerCommandHandlers } from "./handlers/commands.js";
-import { registerHoverHandler } from "./handlers/hover.js";
+import { COMMAND_IDS, registerCommandHandlers } from "./handler/commands.js";
+import { registerHoverHandler } from "./handler/hover.js";
 import { initSettings } from "./utils/settingsUtils.js";
 import { initLogger, log } from "./utils/logger.js";
 import { initProgress } from "./utils/progressUtils.js";
@@ -79,6 +80,7 @@ connection.onInitialized(() => {
 // Event handlers (file + setting change events)
 registerFileEventHandlers(documents, connection);
 registerSettingsChangeHandlers(connection);
+registerGitEventHandlers(connection);
 
 // LSP capability handlers (goto def, find refs, etc...)
 registerDefinitionHandler(connection, documents);

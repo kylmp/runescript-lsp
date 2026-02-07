@@ -25,10 +25,9 @@ export type ParseResult =
   | { kind: ParserKind.Gamevar; data: ConfigFile, fileInfo: FileInfo }
   | { kind: ParserKind.Script; data: ScriptFile, fileInfo: FileInfo }
   | { kind: ParserKind.Constant; data: ConstantFile, fileInfo: FileInfo }
-  | { kind: ParserKind.Pack; data: PackFile, fileInfo: FileInfo }
-  | undefined;
+  | { kind: ParserKind.Pack; data: PackFile, fileInfo: FileInfo };
 
-type Parser = (request: ParseRequest) => ParseResult;
+type Parser = (request: ParseRequest) => ParseResult | undefined;
 
 function getParser(fileType: FileType): Parser {
   switch(fileType) {
@@ -40,7 +39,7 @@ function getParser(fileType: FileType): Parser {
   }
 }
 
-export async function parseFile(fileInfo: FileInfo, fileText?: string): Promise<ParseResult> {
+export async function parseFile(fileInfo: FileInfo, fileText?: string): Promise<ParseResult | undefined> {
   const parser = getParser(fileInfo.type);
   return parser({ fileInfo, lines: getLines(fileText ?? await getFileText(fileInfo.fsPath)) });
 }

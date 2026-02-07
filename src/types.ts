@@ -1,3 +1,6 @@
+import { FileCache } from "./cache/FileCache.js";
+import type { IdCache } from "./cache/IdCache.js";
+import type { SymbolCache } from "./cache/SymbolCache.js";
 import type { ConfigVarArgSrc } from "./resource/configKeys.js";
 import type { DisplayItem } from "./resource/enum/displayItems.js";
 import type { FileType } from "./resource/enum/fileTypes.js";
@@ -5,6 +8,10 @@ import type { Language } from "./resource/enum/languages.js";
 import type { SemanticTokenType } from "./resource/enum/semanticTokens.js";
 import type { SymbolType } from "./resource/enum/symbolTypes.js";
 import type { Type } from "./resource/enum/types.js";
+
+export type ConfigKey = string;
+export type SymbolKey = string;
+export type FileKey = string;
 
 export interface FileInfo { 
   name: string;
@@ -87,7 +94,6 @@ export interface ConfigData {
   }
 }
 
-export type ConfigKey = string;
 export interface FileConfigData {
   /** Direct file keys to parse (direct string value) */
   directMap: Map<ConfigKey, ConfigData>,
@@ -151,4 +157,40 @@ export interface ParsedWord {
   text: string;
   start: number;
   end: number;
+}
+
+/**
+  * Tracks the keys of identifier declarations and references within a file
+  */
+export interface FileSymbols {
+  declarations: Set<SymbolKey>;
+  references: Set<SymbolKey>;
+}
+
+export interface ResolvedSymbol {
+  symbol: RunescriptSymbol;
+  symbolConfig: SymbolConfig;
+  definition: boolean;
+}
+
+export interface ResolvedDefData {
+  symbol: RunescriptSymbol;
+  symbolConfig: SymbolConfig;
+  line: number;
+}
+
+export interface ResolvedRefData {
+  name: string;
+  line: number;
+  id?: string;
+  symbolConfig: SymbolConfig;
+}
+
+/**
+ * A wrapper interface that holds data and the start and end positions that data is contained in
+ */
+export interface DataRange<T> {
+  start: number,
+  end: number,
+  data: T
 }
