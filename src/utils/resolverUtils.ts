@@ -1,4 +1,5 @@
-import { DataRange } from "../types.js";
+import { getSymbolConfig } from "../resource/symbolConfig.js";
+import { DataRange, ParsedWord, ResolvedDefData, RunescriptSymbol } from "../types.js";
 
 /**
  * Binary search to find the match of a data range list at the index provided, if there is one
@@ -18,4 +19,16 @@ export function findMatchInRange<T>(index: number, items?: DataRange<T>[]): Data
     else return item;
   }
   return undefined;
+}
+
+export function buildDefDataRange(word: ParsedWord, line: number, symbol: RunescriptSymbol): DataRange<ResolvedDefData> {
+  return { 
+    start: word.start, 
+    end: word.end, 
+    data: { 
+      symbol: symbol, 
+      symbolConfig: 
+      getSymbolConfig(symbol.symbolType), line 
+    }
+  };
 }

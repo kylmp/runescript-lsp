@@ -4,8 +4,9 @@ import { FileChangeType, FileEvent, TextDocumentChangeEvent } from "vscode-langu
 import { isOpenDocument } from "../utils/documentUtils.js";
 import { uriToFileInfo } from "../utils/fileUtils.js";
 import { FileInfo } from "../types.js";
-import { log } from "../utils/logger.js";
-import { rebuildWorkspace } from "../manager.js";
+import { log, logFileEvent } from "../utils/logger.js";
+import { disposeFile, rebuildFile, rebuildWorkspace } from "../manager.js";
+import { getIsInitializing } from "../utils/initUtils.js";
 
 export function registerFileEventHandlers(documents: TextDocuments<TextDocument>, connection: Connection): void {
   documents.onDidOpen(handleDocumentOpened);
@@ -22,43 +23,59 @@ export function registerFileEventHandlers(documents: TextDocuments<TextDocument>
 }
 
 function handleDocumentClosed(event: TextDocumentChangeEvent<TextDocument>) {
+  if (getIsInitializing()) return;
   const fileInfo = uriToFileInfo(event.document.uri);
-  logEvent('file closed', fileInfo);
-  rebuildWorkspace(fileInfo.workspace);
+  if (!fileInfo.isMonitored) return;
+  logFileEvent('file closed', fileInfo);
+  //disposeFile(fileInfo);
 }
 
 function handleDocumentOpened(event: TextDocumentChangeEvent<TextDocument>) {
-  // This fires along with the active file changed event
+  if (getIsInitializing()) return;
+  // This fires along with the active file changed event 
   const fileInfo = uriToFileInfo(event.document.uri);
-  logEvent('file opened', fileInfo);
+  if (!fileInfo.isMonitored) return;
+  logFileEvent('file opened', fileInfo);
+  //rebuildFile(fileInfo, event.document.getText());
 }
 
 function handleDocumentSaved(event: TextDocumentChangeEvent<TextDocument>) {
+  if (getIsInitializing()) return;
   const fileInfo = uriToFileInfo(event.document.uri);
-  logEvent('file saved', fileInfo);
+  if (!fileInfo.isMonitored) return;
+  logFileEvent('file saved', fileInfo);
+  rebuildFile(fileInfo, event.document.getText());
 }
 
 function handleDocumentChanged(event: TextDocumentChangeEvent<TextDocument>) {
+  if (getIsInitializing()) return;
   const fileInfo = uriToFileInfo(event.document.uri);
-  logEvent('active file changed', fileInfo);
+  if (!fileInfo.isMonitored) return;
+  logFileEvent('active file changed', fileInfo);
+  rebuildFile(fileInfo, event.document.getText());
 }
 
 function handleFileChanged(event: FileEvent) {
+  if (getIsInitializing()) return;
   if (isOpenDocument(event.uri)) return; // Opened document changes are covered by handleDocumentChanged
   const fileInfo = uriToFileInfo(event.uri);
-  logEvent('inactive file changed', fileInfo);
+  if (!fileInfo.isMonitored) return;
+  logFileEvent('inactive file changed', fileInfo);
+  rebuildFile(fileInfo);
 }
 
 function handleFileDeleted(event: FileEvent) {
+  if (getIsInitializing()) return;
   const fileInfo = uriToFileInfo(event.uri);
-  logEvent('file deleted', fileInfo);
+  if (!fileInfo.isMonitored) return;
+  logFileEvent('file deleted', fileInfo);
+  disposeFile(fileInfo);
 }
 
 function handleFileCreated(event: FileEvent) {
+  if (getIsInitializing()) return;
   const fileInfo = uriToFileInfo(event.uri);
-  logEvent('file created', fileInfo);
-}
-
-function logEvent(eventName: string, fileInfo: FileInfo) {
-  log(`${eventName}: ${fileInfo.name}.${fileInfo.type} [isOpen: ${fileInfo.isOpen()}] [workspace: ${fileInfo.workspace}]`);
+  if (!fileInfo.isMonitored) return;
+  logFileEvent('file created', fileInfo);
+  rebuildFile(fileInfo);
 }

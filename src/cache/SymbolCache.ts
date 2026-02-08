@@ -198,6 +198,14 @@ export class SymbolCache {
     this.fileToSymbolMap.set(fileKey, symbolsInFile);
   }
 
+  getCompletionCache(): CompletionCache {
+    return this.completionCache;
+  }
+
+  getFileSymbols(fsPath: string): FileSymbols {
+    return this.fileToSymbolMap.get(fsPath) ?? { declarations: new Set(), references: new Set() };
+  }
+
   /**
    * Return all of the cache keys in the identifier cache, used for the export cache keys debug command
    * @returns cache keys

@@ -1,17 +1,35 @@
-import { DataRange, ResolvedSymbol, RunescriptSymbol } from "../types.js";
+import { Range } from "vscode-languageserver";
+import { DataRange, FileInfo, ResolvedSymbol, RunescriptSymbol } from "../types.js";
 import { findMatchInRange } from "../utils/resolverUtils.js";
 
 export class FileCache {
   // Cache of all symbols in the file, per line
-  private readonly fileSymbols = new Map<number, DataRange<ResolvedSymbol>[]>();
+  private readonly fileSymbols: Map<number, DataRange<ResolvedSymbol>[]>;
 
   // key => block name | value => map of local variable symbols keyed by variable name
-  private readonly localVarCache = new Map<string, Map<string, RunescriptSymbol>>();
+  private readonly localVarCache: Map<string, Map<string, RunescriptSymbol>>;
 
   // Tracks the line number range of scripts in the file
-  private readonly scriptRanges: DataRange<string>[] = [];
+  private readonly scriptRanges: DataRange<string>[];
+
+  private readonly symbolRanges: Range[];
+
+  private readonly fileInfo: FileInfo;
+
+  constructor(fileInfo: FileInfo) {
+    this.fileSymbols = new Map<number, DataRange<ResolvedSymbol>[]>();
+    this.localVarCache = new Map<string, Map<string, RunescriptSymbol>>();
+    this.scriptRanges = [];
+    this.symbolRanges = [];
+    this.fileInfo = fileInfo;
+  }
 
   addSymbol(lineNum: number, symbol: DataRange<ResolvedSymbol>): void {
+    this.symbolRanges.push({ 
+      start: {line: lineNum, character: symbol.start}, 
+      end: {line: lineNum, character: symbol.end}
+    });
+
     let symbols = this.fileSymbols.get(lineNum);
     if (!symbols) {
       this.fileSymbols.set(lineNum, [symbol]);
@@ -33,6 +51,14 @@ export class FileCache {
     symbols.push(symbol);
   }
 
+  getSymbols(): Map<number, DataRange<ResolvedSymbol>[]> {
+    return this.fileSymbols;
+  }
+
+  getSymbolRanges(): Range[] {
+    return this.symbolRanges;
+  }
+
   getLocalVariable(lineNum: number, name: string): RunescriptSymbol | undefined {
     const script = this.getScriptName(lineNum);
     if (!script) return undefined;
@@ -47,5 +73,9 @@ export class FileCache {
 
   getScriptName(lineNum: number) {
     return findMatchInRange(lineNum, this.scriptRanges);
+  }
+
+  getFileInfo(): FileInfo {
+    return this.fileInfo;
   }
 }

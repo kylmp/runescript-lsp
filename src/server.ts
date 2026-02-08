@@ -4,6 +4,7 @@ import { URI } from "vscode-uri";
 import { registerDefinitionHandler } from "./handler/definition.js";
 import { registerFileEventHandlers } from "./handler/fileEvents.js";
 import { registerGitEventHandlers } from "./handler/gitEvents.js";
+import { registerWorkspaceEventHandlers } from "./handler/workspaceEvents.js";
 import { setDocuments } from "./utils/documentUtils.js";
 import { registerSettingsChangeHandlers } from "./handler/settingsEvents.js";
 import { setWorkspaceFolders } from "./utils/workspaceUtils.js";
@@ -12,6 +13,9 @@ import { registerHoverHandler } from "./handler/hover.js";
 import { initSettings } from "./utils/settingsUtils.js";
 import { initLogger, log } from "./utils/logger.js";
 import { initProgress } from "./utils/progressUtils.js";
+import { initHighlights } from "./utils/highlightUtils.js";
+import { startInit } from "./utils/initUtils.js";
+import { rebuildAllWorkspaces } from "./manager.js";
 
 // Create a connection for the server, and a document manager
 const connection = createConnection(ProposedFeatures.all);
@@ -19,6 +23,7 @@ const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 setDocuments(documents);
 initLogger(connection);
 initProgress(connection);
+initHighlights(connection);
 
 let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
@@ -71,10 +76,10 @@ connection.onInitialized(() => {
   }
 
   if (hasWorkspaceFolderCapability) {
-    connection.workspace.onDidChangeWorkspaceFolders((_event) => {
-      log("Workspace folder change event received.");
-    });
+    registerWorkspaceEventHandlers(connection);
   }
+
+  startInit(rebuildAllWorkspaces());
 });
 
 // Event handlers (file + setting change events)

@@ -8,7 +8,6 @@ export function buildFromReference(name: string, symbolType: SymbolType): Runesc
     name,
     symbolType,
     cacheKey: resolveSymbolKey(name, symbolType),
-    fileType: '',
     language: getDisplayLanguage(symbolType),
     references: {}
   }

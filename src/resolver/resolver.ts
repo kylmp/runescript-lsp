@@ -36,7 +36,7 @@ export function resolveParsedResult(parseResult: ParseResult, cache: WorkspaceCa
   const resolver = getResolver(parseResult.kind);
   if (!resolver) return 0;
   let resolvedCount = 0;
-  const fileCache = parseResult.fileInfo.isOpen() ? cache.getOrCreateFileCache(parseResult.fileInfo.fsPath) : undefined;
+  const fileCache = cache.getFileCache(parseResult.fileInfo.fsPath);
   if (resolutionMode === ResolutionMode.All || resolutionMode === ResolutionMode.Definitions) {
     resolvedCount += resolveAndCacheDefinitions(resolver.resolveDefinitions, parseResult, cache, fileCache);
   }

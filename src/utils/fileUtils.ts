@@ -33,7 +33,8 @@ export function uriToFileInfo(uri: string): FileInfo {
   const fsPath = mapUri(uri);
   const workspace = findWorkspaceFolder(fsPath) ?? 'none';
   const fileSplit = fsPath.split('\\').pop()!.split('/').pop()!.split('.');
-  return { uri, fsPath, workspace, name: fileSplit[0], type: fileSplit[1] as FileType, isOpen: () => isOpenDocument(uri) };
+  const type = fileSplit[1] as FileType;
+  return { uri, fsPath, workspace, name: fileSplit[0], type, isMonitored: monitoredFileTypes.has(type), isOpen: () => isOpenDocument(uri) };
 }
 
 /**
@@ -44,7 +45,8 @@ export function fsPathToFileInfo(fsPath: string): FileInfo {
   const uri = URI.file(fsPath).toString();
   const workspace = findWorkspaceFolder(fsPath) ?? 'none';
   const fileSplit = fsPath.split('\\').pop()!.split('/').pop()!.split('.');
-  return { uri, fsPath, workspace, name: fileSplit[0], type: fileSplit[1] as FileType, isOpen: () => isOpenDocument(uri) };
+  const type = fileSplit[1] as FileType;
+  return { uri, fsPath, workspace, name: fileSplit[0], type, isMonitored: monitoredFileTypes.has(type), isOpen: () => isOpenDocument(uri) };
 }
 
 /**

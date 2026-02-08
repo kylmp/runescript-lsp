@@ -2,9 +2,14 @@ import { addWorkspaceCache, clearFile, clearWorkspaceCache, getWorkspaceCache } 
 import { parseFile, ParseResult, ParserKind } from "./parser/parser.js";
 import { ResolutionMode, resolveParsedResult } from "./resolver/resolver.js";
 import type { FileInfo } from "./types.js";
+import { sendAllHighlights } from "./utils/highlightUtils.js";
 import { log, warn } from "./utils/logger.js";
 import { startProgress } from "./utils/progressUtils.js";
-import { getMonitoredWorkspaceFiles } from "./utils/workspaceUtils.js";
+import { getMonitoredWorkspaceFiles, getWorkspaceFolders } from "./utils/workspaceUtils.js";
+
+export async function rebuildAllWorkspaces() {
+  await Promise.all(getWorkspaceFolders().map(ws => rebuildWorkspace(ws)));
+}
 
 export async function rebuildWorkspace(workspace: string) {
   const startRescan = performance.now();
@@ -19,11 +24,12 @@ export async function rebuildWorkspace(workspace: string) {
   const progress = await startProgress('Indexing Workspace', 'Scanning files...');
   const files: FileInfo[] = await getMonitoredWorkspaceFiles(workspace);
   if (files.length === 0) {
+    log(`Not a runescript workspace, no further work will be done on workspace [${workspace}]`);
     progress.done();
     return;
   }
   log(`Rescan: Found ${files.length} files in ${performance.now() - start} ms`);
-
+ 
   // Parse files
   let done = 0;
   const total = files.length;
@@ -33,6 +39,7 @@ export async function rebuildWorkspace(workspace: string) {
   progress.report(parsingStartPct, 'Parsing files...');
   const parsedFiles: ParseResult[] = (await Promise.all(
     files.map(async fileInfo => { 
+      cache.addFileCache(fileInfo);
       const result = await parseFile(fileInfo);
       if (!result) {
         warn(`Empty file or error parsing ${fileInfo.fsPath}`);
@@ -54,6 +61,9 @@ export async function rebuildWorkspace(workspace: string) {
   const scripts: ParseResult[] = [];
   const packs: ParseResult[] = [];
   for (const pf of parsedFiles) {
+    if (pf.fileInfo.isOpen()) {
+      log(`Open File [${pf.fileInfo.name}.${pf.fileInfo.type}]`);
+    }
     switch (pf.kind) {
       case ParserKind.Gamevar: gameVars.push(pf); break;
       case ParserKind.Constant: constants.push(pf); break;
@@ -77,16 +87,21 @@ export async function rebuildWorkspace(workspace: string) {
   log(`Rescan: Resolved ${resolved} symbols in ${performance.now() - start} ms`);
 
   // Report diagnostics?
+  sendAllHighlights(cache);
 
-  log(`Finished rescan of workspace ${workspace} in ${performance.now() - startRescan} ms`);
+  log(`Finished rescan of workspace [${workspace}] in ${performance.now() - startRescan} ms`);
   progress.report(100, "Indexing complete");
   await new Promise((r) => setTimeout(r, 1000));
   progress.done();
 }
 
 export async function rebuildFile(fileInfo: FileInfo, text?: string) {
-  // clear caches
+  const start = performance.now();
+
+  // clear and init new caches
   clearFile(fileInfo.workspace, fileInfo.fsPath);
+  const cache = getWorkspaceCache(fileInfo.workspace);
+  cache.addFileCache(fileInfo);
 
   // parse file
   const parsedFile = await parseFile(fileInfo, text);
@@ -96,8 +111,18 @@ export async function rebuildFile(fileInfo: FileInfo, text?: string) {
   }
 
   // resolve file 
-  resolveParsedResult(parsedFile, getWorkspaceCache(fileInfo.workspace), ResolutionMode.All);
+  resolveParsedResult(parsedFile, cache, ResolutionMode.All);
+
+  //sendFileDecorations(fileInfo);
 
   // diagnostics
   // if open file => add semantic tokens, add highlights
+}
+
+export function disposeWorkspace(workspace: string) {
+  clearWorkspaceCache(workspace);
+}
+
+export function disposeFile(fileInfo: FileInfo) {
+  getWorkspaceCache(fileInfo.workspace).clearFile(fileInfo.fsPath);
 }

@@ -1,5 +1,7 @@
 import type { Connection, DidChangeConfigurationParams } from "vscode-languageserver/node.js";
-import { log } from "./logger.js";
+import { logSettingsChange } from "./logger.js";
+import { rebuildAllWorkspaces } from "../manager.js";
+import { clearAllHighlights } from "./highlightUtils.js";
 
 export interface Settings {
   enableDiagnostics: boolean;
@@ -48,7 +50,6 @@ export async function initSettings(connection: Connection): Promise<void> {
   } else {
     currentSettings = { ...defaultSettings };
   }
-  log(`settings initialized ${JSON.stringify(currentSettings)}`);
 }
 
 export function handleSettingsChange(change: DidChangeConfigurationParams): void {
@@ -65,6 +66,33 @@ export function handleSettingsChange(change: DidChangeConfigurationParams): void
       };
     }
   }
-  const changed = prevSettings.enableDiagnostics !== currentSettings.enableDiagnostics || prevSettings.enableHover !== currentSettings.enableHover || prevSettings.enableDevMode !== currentSettings.enableDevMode;
-  if (changed) log(`settings update ${JSON.stringify(currentSettings)}`);
+  diagnosticsToggled(prevSettings.enableDiagnostics, currentSettings.enableDiagnostics);
+  hoverToggled(prevSettings.enableHover, currentSettings.enableHover);
+  devModeToggled(prevSettings.enableDevMode, currentSettings.enableDevMode);
+}
+
+function diagnosticsToggled(prevValue: boolean, newValue: boolean) {
+  const changed = prevValue != newValue;
+  if (changed) {
+    logSettingsChange('enableDiagnostics', newValue);
+  }
+}
+
+function hoverToggled(prevValue: boolean, newValue: boolean) {
+  const changed = prevValue != newValue;
+  if (changed) {
+    logSettingsChange('enableHover', newValue);
+  }
+}
+
+function devModeToggled(prevValue: boolean, newValue: boolean) {
+  const changed = prevValue != newValue;
+  if (changed) { 
+    logSettingsChange('enableDevMode', newValue);
+    if (newValue) {
+      rebuildAllWorkspaces();
+    } else {
+      clearAllHighlights();
+    }
+  }
 }

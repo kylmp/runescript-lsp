@@ -1,6 +1,4 @@
-import { FileCache } from "./cache/FileCache.js";
-import type { IdCache } from "./cache/IdCache.js";
-import type { SymbolCache } from "./cache/SymbolCache.js";
+import type { Range } from "vscode-languageserver";
 import type { ConfigVarArgSrc } from "./resource/configKeys.js";
 import type { DisplayItem } from "./resource/enum/displayItems.js";
 import type { FileType } from "./resource/enum/fileTypes.js";
@@ -16,10 +14,11 @@ export type FileKey = string;
 export interface FileInfo { 
   name: string;
   type: FileType;
-  uri: string,
-  fsPath: string,
-  workspace: string
-  isOpen: () => boolean
+  uri: string;
+  fsPath: string;
+  workspace: string;
+  isMonitored: boolean;
+  isOpen: () => boolean;
 }
 
 /**
@@ -78,27 +77,27 @@ export type PostProcessor = (symbol: RunescriptSymbol) => void;
 /** Data which defines info about the values a config key expects (key=value(s)) */
 export interface ConfigData {
   /** The config key to look for, can be a direct string or a regex to match multiple keys */
-  key?: string
+  key?: string;
   /** The types of the params for this config key, in order */
-  params: Type[],
+  params: Type[];
   /** Words to be ignored as params if they belong to this config key */
-  ignoreValues?: string[]
+  ignoreValues?: string[];
   /** If this config key has var args, this data is used by the matcher to figure out the arg match types */
   varArgs?: { 
     /** The param index that the varags start on */
-    startIndex: number, 
+    startIndex: number;
     /** The source of the symbol where the vararg param types are defined */
-    symbolSource: ConfigVarArgSrc, 
+    symbolSource: ConfigVarArgSrc; 
     /** The symbol type the identifier where the varag param types are defined */
-    symbolType: SymbolType 
+    symbolType: SymbolType;
   }
 }
 
 export interface FileConfigData {
   /** Direct file keys to parse (direct string value) */
-  directMap: Map<ConfigKey, ConfigData>,
+  directMap: Map<ConfigKey, ConfigData>;
   /** Regex file keys to test the key against to decide if to parse that config row */
-  regexMap: Map<RegExp, ConfigData>
+  regexMap: Map<RegExp, ConfigData>;
 }
 
 /**
@@ -134,7 +133,7 @@ export interface RunescriptSymbol {
   /** The locations (encoded as string) of the references of the symbol */
   references: Record<string, Set<string>>;
   /** The file type where the symbol exists/defined in */
-  fileType: string;
+  fileType?: string;
   /** The code language the symbol should use for syntax highlighting display purposes */
   language: Language;
   /** For displaying the symbol info text on hover (italicized body text, always on first line of body text) */
@@ -190,7 +189,12 @@ export interface ResolvedRefData {
  * A wrapper interface that holds data and the start and end positions that data is contained in
  */
 export interface DataRange<T> {
-  start: number,
-  end: number,
-  data: T
+  start: number;
+  end: number;
+  data: T;
 }
+
+export type DevModeHighlightsResponse = {
+  uri: string;
+  ranges: Range[];
+};

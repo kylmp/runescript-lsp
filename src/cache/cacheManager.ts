@@ -1,3 +1,4 @@
+import { CompletionCache } from "./CompletionCache.js";
 import { FileCache } from "./FileCache.js";
 import { IdCache } from "./IdCache.js";
 import { SymbolCache } from "./SymbolCache.js";
@@ -42,6 +43,10 @@ export function getWorkspaceCache(workspace: string): WorkspaceCache {
 
 export function getSymbolCache(workspace: string): SymbolCache {
   return getWorkspaceCache(workspace).getSymbolCache();
+}
+
+export function getCompletionCache(workspace: string): CompletionCache {
+  return getWorkspaceCache(workspace).getSymbolCache().getCompletionCache();
 }
 
 export function getIdCache(workspace: string): IdCache {

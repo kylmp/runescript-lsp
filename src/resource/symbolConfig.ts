@@ -7,8 +7,8 @@ import { Type } from './enum/types.js';
 import { Language } from './enum/languages.js';
 import { FileType } from './enum/fileTypes.js';
 
-export function getSymbolConfig(symbolType: SymbolType): SymbolConfig | undefined {
-  return symbolConfigs.get(symbolType);
+export function getSymbolConfig(symbolType: SymbolType): SymbolConfig {
+  return symbolConfigs.get(symbolType) ?? symbolConfigs.get(SymbolType.Unknown)!;
 }
 
 export function getAllSymbolConfigs(): SymbolConfig[] {
@@ -253,7 +253,7 @@ const symbolConfigs = new Map<SymbolType, SymbolConfig>([
   }],
 
   [SymbolType.Number, { 
-    symbolType: SymbolType.Number, types: [], fileTypes: [], cache: false, allowRename: false, noop: true 
+    symbolType: SymbolType.Number, types: [], fileTypes: [], cache: false, allowRename: false, noop: true, comparisonType: Type.Int  
   }],
 
   [SymbolType.Keyword, { 
@@ -270,6 +270,10 @@ const symbolConfigs = new Map<SymbolType, SymbolConfig>([
 
   [SymbolType.Null, { 
     symbolType: SymbolType.Null, types: [], fileTypes: [], cache: false, allowRename: false, noop: true 
+  }],
+
+  [SymbolType.String, { 
+    symbolType: SymbolType.Null, types: [], fileTypes: [], cache: false, allowRename: false, noop: true, comparisonType: Type.String 
   }]
 ]);
 
