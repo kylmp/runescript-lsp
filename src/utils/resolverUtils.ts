@@ -1,8 +1,9 @@
 import { Location, Position, Range } from "vscode-languageserver";
 import { SymbolType } from "../resource/enum/symbolTypes.js";
 import { getSymbolConfig } from "../resource/symbolConfig.js";
-import { DataRange, ResolvedData, RunescriptSymbol, SymbolConfig } from "../types.js";
+import { DataRange, FileInfo, ResolvedData, ResolvedSymbol, RunescriptSymbol, SymbolConfig } from "../types.js";
 import { buildSymbolFromRef } from "./symbolBuilder.js";
+import { getFileCache } from "../cache/cacheManager.js";
 
 /**
  * Binary search to find the match of a data range list at the index provided, if there is one
@@ -34,6 +35,14 @@ export function buildRange(start: number, end: number, line: number): Range {
 
 export function buildPosition(index: number, line: number): Position {
   return Position.create(line, index);
+}
+
+export function resolveAtHandlerPosition(position: Position, fileInfo: FileInfo): DataRange<ResolvedSymbol> | undefined {
+  const fileCache = getFileCache(fileInfo.workspace, fileInfo.fsPath);
+  if (!fileCache) return undefined;
+  const resolvedDataRange = fileCache.getAtPosition(position);
+  if (!resolvedDataRange) return undefined;
+  return resolvedDataRange;
 }
 
 export function resolveRefDataRange(symbolType: SymbolType, start: number, end: number, line: number, name: string, fileType: string, context?: Record<string, any>) {

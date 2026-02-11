@@ -5,23 +5,19 @@ import { getFileCache } from "../cache/cacheManager.js";
 import { DataRange, ResolvedSymbol } from "../types.js";
 import { SymbolType } from "../resource/enum/symbolTypes.js";
 import { DisplayItem, getDeclarationDisplayItems, getReferenceDisplayItems } from "../resource/enum/displayItems.js";
+import { resolveAtHandlerPosition } from "../utils/resolverUtils.js";
 
 export function registerHoverHandler(connection: Connection): void {
   connection.onHover((params) => {
     if (!isHoverEnabled() && !isDevMode()) return null;
 
     const fileInfo = uriToFileInfo(params.textDocument.uri);
-    const position = params.position;
-    const fileCache = getFileCache(fileInfo.workspace, fileInfo.fsPath);
-    if (!fileCache) return null;
-
-    const markdown: string[] = [];
-
-    const resolved = fileCache.getAtPosition(position);
+    const resolved = resolveAtHandlerPosition(params.position, fileInfo);
     if (!resolved) return null;
 
+    const markdown: string[] = [];
     appendSymbolHoverText(markdown, resolved.data);
-    if (isDevMode()) appendDevModeHoverText(markdown, resolved, position);
+    if (isDevMode()) appendDevModeHoverText(markdown, resolved, params.position);
 
     const contents = {
       kind: "markdown",

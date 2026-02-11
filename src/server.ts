@@ -5,6 +5,7 @@ import { registerDefinitionHandler } from "./handler/definition.js";
 import { registerFileEventHandlers } from "./handler/fileEvents.js";
 import { registerGitEventHandlers } from "./handler/gitEvents.js";
 import { registerWorkspaceEventHandlers } from "./handler/workspaceEvents.js";
+import { registerReferencesHandler } from "./handler/references.js";
 import { setDocuments } from "./utils/documentUtils.js";
 import { registerSettingsChangeHandlers } from "./handler/settingsEvents.js";
 import { setWorkspaceFolders } from "./utils/workspaceUtils.js";
@@ -51,6 +52,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
     capabilities: {
       textDocumentSync: TextDocumentSyncKind.Incremental,
       definitionProvider: true,
+      referencesProvider: true,
       hoverProvider: true,
       executeCommandProvider: {
         commands: [...COMMAND_IDS]
@@ -89,6 +91,7 @@ registerGitEventHandlers(connection);
 
 // LSP capability handlers (goto def, find refs, etc...)
 registerDefinitionHandler(connection);
+registerReferencesHandler(connection);
 registerCommandHandlers(connection);
 registerHoverHandler(connection);
 
