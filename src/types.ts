@@ -22,7 +22,7 @@ export interface FileInfo {
 }
 
 /**
- * The MatchType is the config that controls how identifiers are built, cached, and displayed
+ * The MatchType is the config that controls how symbols are built, cached, and displayed
  */
 export interface SymbolConfig {
   /** The type of symbol this config is for */
@@ -33,23 +33,23 @@ export interface SymbolConfig {
   fileTypes?: FileType[];
   /** Override the color this type will show up as by assigning it to a semantic token type */
   semanticTokenConfig?: { declaration?: SemanticTokenType, reference?: SemanticTokenType }
-  /** Whether or not identifiers of this match type should be cached */
+  /** Whether or not symbols of this match type should be cached */
   cache: boolean;
   /** Whether or not this match type can be a callable or have parameters (like PROC, LOC, COMMAND...) */
   callable?: boolean;
-  /** Whether or not identifiers of this type have only references (no definition/declaration). Used mainly for identifiers which refer to a file, like synths. */
+  /** Whether or not symbols of this type have only references (no definition/declaration). Used mainly for symbols which refer to a file, like synths. */
   referenceOnly?: boolean;
-  /** Whether or not identifiers of this type should be allowed to be renamed (code change) */
+  /** Whether or not symbols of this type should be allowed to be renamed (code change) */
   allowRename: boolean;
-  /** Whether or not identifiers declaration file name can be renamed (actual file rename) */
+  /** Whether or not symbols declaration file name can be renamed (actual file rename) */
   renameFile?: boolean;
-  /** Whether or not identifiers of this type is no operation (used for finding matches and terminating matching early, but not ever cached or displayed) */
+  /** Whether or not symbols of this type is no operation (used for finding matches and terminating matching early, but not ever cached or displayed) */
   noop?: boolean;
-  /** The config settings for the hover display of identifiers of this type */
+  /** The config settings for the hover display of symbols of this type */
   hoverConfig?: HoverConfig;
-  /** The comparison type that is *always* used for this matchType, if it has multiple possible comparison types such as constants, handle that in the identifier instead */
+  /** The comparison type that is *always* used for this matchType, if it has multiple possible comparison types such as constants, handle that in the symbol instead */
   comparisonType?: Type;
-  /** Function that is executed after identifiers of this type have been created (allows for more dynamic runtime info with full context to be tied to an identifier) */
+  /** Function that is executed after symbols of this type have been created (allows for more dynamic runtime info with full context to be tied to an symbol) */
   postProcessor?: PostProcessor;
 }
 
@@ -63,14 +63,12 @@ export interface HoverConfig {
   referenceItems?: DisplayItem[];
   /** Language used for displaying code blocks of this matchType (for proper syntax highlighting) */
   language?: Language;
-  /** Number of lines to skip for displaying a code block (defaults to 1 to skip the declaration line that most types have) */
-  blockSkipLines?: number;
   /** Config line items to include in code block. Undefined shows all config items (default). */
   configInclusions?: string[];
 }
 
 /**
- * Function format for post processors which run when an identifier is created
+ * Function format for post processors which run when an symbol is created
  */
 export type PostProcessor = (symbol: RunescriptSymbol) => void;
 
@@ -88,7 +86,7 @@ export interface ConfigData {
     startIndex: number;
     /** The source of the symbol where the vararg param types are defined */
     symbolSource: ConfigVarArgSrc; 
-    /** The symbol type the identifier where the varag param types are defined */
+    /** The symbol type the symbol where the varag param types are defined */
     symbolType: SymbolType;
   }
 }
@@ -100,18 +98,30 @@ export interface FileConfigData {
   regexMap: Map<RegExp, ConfigData>;
 }
 
+export interface SignatureReturn {
+  type: Type;
+  symbolType: SymbolType;
+}
+
+export interface SignatureParam extends SignatureReturn {
+  name: string;
+}
+
 /**
  * The data used to represent a signature of a proc or other type
  */
 export interface Signature {
   /** The parameters for the signature */
-  params: Type[];
+  params: SignatureParam[];
   /** The return types for the signature */
-  returns: Type[];
-  /** The precomputed single line text of the parameters, for display purposes */
-  paramsText: string;
-  /** The precomputed single line text of the return types, for display purposes */
-  returnsText: string;
+  returns: SignatureReturn[];
+  getParamsDisplayText: () => string;
+  getReturnsDisplayText: () => string;
+}
+
+export interface DynamicConfigType { 
+  symbolType: SymbolType, 
+  valueIndex: number 
 }
 
 /**
@@ -127,9 +137,9 @@ export interface RunescriptSymbol {
   /** This is the pack id (such as Obj ID 1234), if it has one */
   id?: string;
   /** The cache key for this symbol */
-  cacheKey: string;
+  cacheKey?: string;
   /** The location of the declaration/definition of the symbol, if it has one */
-  declaration?: { uri: string; ref: string };
+  declaration?: { fsPath: string; ref: string };
   /** The locations (encoded as string) of the references of the symbol */
   references: Record<string, Set<string>>;
   /** The file type where the symbol exists/defined in */
@@ -140,6 +150,10 @@ export interface RunescriptSymbol {
   info?: string;
   /** For referencing and displaying on hover the symbol params and return types. */
   signature?: Signature;
+  /** For holding type data about dynamic configs */
+  dynamicConfigTypes?: DynamicConfigType[];
+  /** Lines from the config that are saved with the symbol */
+  configLines?: Map<string, string[]>;
   /** For displaying the symbols code block on hover */
   block?: string;
   /** For displaying the symbols value text on hover (plain body text, positioned below info text but above signature or code blocks) */
@@ -149,7 +163,7 @@ export interface RunescriptSymbol {
   /** Boolean indicating if hover text should not display for this symbol */
   hideDisplay?: boolean;
   /** The type(s) this symbol resolves to for comparison operations */
-  comparisonTypes?: Type[];
+  comparisonTypes?: SymbolType[];
 }
 
 export interface ParsedWord {
@@ -159,30 +173,35 @@ export interface ParsedWord {
 }
 
 /**
-  * Tracks the keys of identifier declarations and references within a file
+  * Tracks the keys of symbol declarations and references within a file
   */
 export interface FileSymbols {
   declarations: Set<SymbolKey>;
   references: Set<SymbolKey>;
 }
 
+export interface SymbolBuilderExtraItems { 
+  info?: string;
+  signature?: Signature;
+  configLines?: Map<string, string[]>;
+  extraData?: Record<string, any>;
+}
+
 export interface ResolvedSymbol {
   symbol: RunescriptSymbol;
   symbolConfig: SymbolConfig;
-  definition: boolean;
+  declaration: boolean;
+  context?: Record<string, any>;
 }
 
-export interface ResolvedDefData {
-  symbol: RunescriptSymbol;
+export interface ResolvedData {
+  declaration: boolean,
   symbolConfig: SymbolConfig;
   line: number;
-}
-
-export interface ResolvedRefData {
-  name: string;
-  line: number;
+  symbol?: RunescriptSymbol;
+  name?: string;
   id?: string;
-  symbolConfig: SymbolConfig;
+  context?: Record<string, any>;
 }
 
 /**

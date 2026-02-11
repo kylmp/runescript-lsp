@@ -3,9 +3,8 @@ import type { TextDocument } from "vscode-languageserver-textdocument";
 import { FileChangeType, FileEvent, TextDocumentChangeEvent } from "vscode-languageserver/node.js";
 import { isOpenDocument } from "../utils/documentUtils.js";
 import { uriToFileInfo } from "../utils/fileUtils.js";
-import { FileInfo } from "../types.js";
-import { log, logFileEvent } from "../utils/logger.js";
-import { disposeFile, rebuildFile, rebuildWorkspace } from "../manager.js";
+import { logFileEvent } from "../utils/logger.js";
+import { disposeFile, rebuildFile } from "../manager.js";
 import { getIsInitializing } from "../utils/initUtils.js";
 
 export function registerFileEventHandlers(documents: TextDocuments<TextDocument>, connection: Connection): void {

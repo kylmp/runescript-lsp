@@ -1,11 +1,11 @@
 import type { SymbolConfig } from '../types.js';
-// import { globalVarPostProcessor, enumPostProcessor, columnPostProcessor, rowPostProcessor, componentPostProcessor, fileNamePostProcessor, coordPostProcessor, configKeyPostProcessor, triggerPostProcessor, categoryPostProcessor, paramPostProcessor, localVarPostProcessor } from '../resource/postProcessors';
 import { DisplayItem } from "./enum/displayItems.js";
 import { SemanticTokenType } from './enum/semanticTokens.js';
 import { SymbolType } from './enum/symbolTypes.js';
 import { Type } from './enum/types.js';
 import { Language } from './enum/languages.js';
 import { FileType } from './enum/fileTypes.js';
+import { categoryPostProcessor, columnPostProcessor, componentPostProcessor, configKeyPostProcessor, coordPostProcessor, enumPostProcessor, fileNamePostProcessor, gameVarPostProcessor, localVarPostProcessor, rowPostProcessor, triggerPostProcessor } from './symbolPostProcessors.js';
 
 export function getSymbolConfig(symbolType: SymbolType): SymbolConfig {
   return symbolConfigs.get(symbolType) ?? symbolConfigs.get(SymbolType.Unknown)!;
@@ -16,32 +16,31 @@ export function getAllSymbolConfigs(): SymbolConfig[] {
 }
 
 export function typeToSymbolType(type: Type): SymbolType {
-  return typeToSymbolTypeMap[type] ?? SymbolType.Skip;
+  return typeToSymbolTypeMap[type] ?? SymbolType.Unknown;
 }
 
 export function typeToSymbolConfig(type: Type): SymbolConfig {
   return getSymbolConfig(typeToSymbolType(type))!;
 }
 
-export function fileTypeToSymbolType(fileType: FileType): SymbolType | undefined {
-  return fileTypeToSymbolTypeMap[fileType];
+export function fileTypeToSymbolType(fileType: FileType): SymbolType {
+  return fileTypeToSymbolTypeMap[fileType] ?? SymbolType.Unknown;
 }
 
-export function fileTypeToSymbolConfig(fileType: FileType): SymbolConfig | undefined {
-  const symbolType = fileTypeToSymbolType(fileType);
-  return symbolType ? getSymbolConfig(symbolType) : undefined;
+export function fileTypeToSymbolConfig(fileType: FileType): SymbolConfig {
+  return getSymbolConfig(fileTypeToSymbolType(fileType));
 }
 
 const symbolConfigs = new Map<SymbolType, SymbolConfig>([
   [SymbolType.GameVar, {
     symbolType: SymbolType.GameVar, types: [Type.Var], fileTypes: [FileType.Varp, FileType.Varbit, FileType.Vars, FileType.Varn], cache: true, allowRename: true,
     hoverConfig: { declarationItems: [DisplayItem.Title, DisplayItem.Info], referenceItems: [DisplayItem.Title, DisplayItem.Info, DisplayItem.Codeblock], language: Language.Varpconfig, configInclusions: ['type'] },
-    // postProcessor: globalVarPostProcessor
+    postProcessor: gameVarPostProcessor
   }],
 
   [SymbolType.Constant, {
     symbolType: SymbolType.Constant, types: [], fileTypes: [FileType.Constant], cache: true, allowRename: true,
-    hoverConfig: { declarationItems: [DisplayItem.Title, DisplayItem.Info], referenceItems: [DisplayItem.Title, DisplayItem.Info, DisplayItem.Codeblock], language: Language.Constants, blockSkipLines: 0 }
+    hoverConfig: { declarationItems: [DisplayItem.Title, DisplayItem.Info], referenceItems: [DisplayItem.Title, DisplayItem.Info, DisplayItem.Codeblock], language: Language.Constants }
   }],
 
   [SymbolType.Label, {
@@ -109,20 +108,20 @@ const symbolConfigs = new Map<SymbolType, SymbolConfig>([
   [SymbolType.Enum, {
     symbolType: SymbolType.Enum, types: [Type.Enum], fileTypes: [FileType.Enum], cache: true, allowRename: true,
     hoverConfig: { declarationItems: [DisplayItem.Title, DisplayItem.Info], referenceItems: [DisplayItem.Title, DisplayItem.Info, DisplayItem.Codeblock], language: Language.Enumconfig, configInclusions: ['inputtype', 'outputtype'] },
-    // postProcessor: enumPostProcessor
+    postProcessor: enumPostProcessor
   }],
 
   [SymbolType.Dbcolumn, {
     symbolType: SymbolType.Dbcolumn, types: [Type.Dbcolumn], fileTypes: [FileType.Dbtable], cache: true, allowRename: true,
-    hoverConfig: { declarationItems: [DisplayItem.Title, DisplayItem.Info, DisplayItem.Codeblock], referenceItems: [DisplayItem.Title, DisplayItem.Info, DisplayItem.Codeblock], language: Language.Runescript, blockSkipLines: 0 },
-    // postProcessor: columnPostProcessor
+    hoverConfig: { declarationItems: [DisplayItem.Title, DisplayItem.Info, DisplayItem.Codeblock], referenceItems: [DisplayItem.Title, DisplayItem.Info, DisplayItem.Codeblock], language: Language.Runescript },
+    postProcessor: columnPostProcessor
   }],
 
   [SymbolType.Dbrow, {
     symbolType: SymbolType.Dbrow, types: [Type.Dbrow], fileTypes: [FileType.Dbrow], cache: true, allowRename: true,
     hoverConfig: { declarationItems: [DisplayItem.Title, DisplayItem.Info], referenceItems: [DisplayItem.Title, DisplayItem.Info, DisplayItem.Codeblock], language: Language.Dbrowconfig, configInclusions: ['table'] },
     semanticTokenConfig: { declaration: SemanticTokenType.Function },
-    // postProcessor: rowPostProcessor
+    postProcessor: rowPostProcessor
   }],
 
   [SymbolType.Dbtable, {
@@ -133,13 +132,13 @@ const symbolConfigs = new Map<SymbolType, SymbolConfig>([
   [SymbolType.Interface, {
     symbolType: SymbolType.Interface, types: [Type.Interface], fileTypes: [FileType.If], cache: true, allowRename: false, referenceOnly: true,
     hoverConfig: { referenceItems: [DisplayItem.Title, DisplayItem.Info], language: Language.Interface },
-    // postProcessor: fileNamePostProcessor
+    postProcessor: fileNamePostProcessor
   }],
 
   [SymbolType.Component, {
     symbolType: SymbolType.Component, types: [Type.Component], fileTypes: [FileType.If], cache: true, allowRename: true,
     hoverConfig: { declarationItems: [DisplayItem.Title, DisplayItem.Info], referenceItems: [DisplayItem.Title, DisplayItem.Info], language: Language.Interface },
-    // postProcessor: componentPostProcessor
+    postProcessor: componentPostProcessor
   }],
 
   [SymbolType.Param, {
@@ -157,7 +156,7 @@ const symbolConfigs = new Map<SymbolType, SymbolConfig>([
   [SymbolType.Synth, {
     symbolType: SymbolType.Synth, types: [Type.Synth], fileTypes: [FileType.Synth], cache: true, allowRename: true, referenceOnly: true, renameFile: true,
     hoverConfig: { referenceItems: [DisplayItem.Title, DisplayItem.Info] },
-    // postProcessor: fileNamePostProcessor
+    postProcessor: fileNamePostProcessor
   }],
 
   [SymbolType.Model, {
@@ -188,33 +187,33 @@ const symbolConfigs = new Map<SymbolType, SymbolConfig>([
   [SymbolType.Category, {
     symbolType: SymbolType.Category, types: [Type.Category], cache: true, allowRename: true, referenceOnly: true,
     hoverConfig: { referenceItems: [DisplayItem.Title, DisplayItem.Value] },
-    // postProcessor: categoryPostProcessor
+    postProcessor: categoryPostProcessor
   }],
 
   // =========== UNCACHED SYMBOLS =========== //
 
   [SymbolType.LocalVar, {
     symbolType: SymbolType.LocalVar, types: [], fileTypes: [FileType.Rs2], cache: false, allowRename: true,
-    hoverConfig: { declarationItems: [DisplayItem.Title, DisplayItem.Codeblock], referenceItems: [DisplayItem.Title, DisplayItem.Codeblock], language: Language.Runescript, blockSkipLines: 0 },
-    // postProcessor: localVarPostProcessor
+    hoverConfig: { declarationItems: [DisplayItem.Title, DisplayItem.Codeblock], referenceItems: [DisplayItem.Title, DisplayItem.Codeblock], language: Language.Runescript },
+    postProcessor: localVarPostProcessor
   }],
 
   [SymbolType.Coordinates, {
     symbolType: SymbolType.Coordinates, types: [Type.Coord], cache: false, allowRename: false,
     hoverConfig: { referenceItems: [DisplayItem.Title, DisplayItem.Value] },
-    // postProcessor: coordPostProcessor
+    postProcessor: coordPostProcessor
   }],
 
   [SymbolType.ConfigKey, {
     symbolType: SymbolType.ConfigKey, types: [], cache: false, allowRename: false,
     hoverConfig: { referenceItems: [DisplayItem.Title, DisplayItem.Info] },
-    // postProcessor: configKeyPostProcessor
+    postProcessor: configKeyPostProcessor
   }],
 
   [SymbolType.Trigger, {
     symbolType: SymbolType.Trigger, types: [], cache: false, allowRename: false,
     hoverConfig: { referenceItems: [DisplayItem.Title, DisplayItem.Info] },
-    // postProcessor: triggerPostProcessor
+    postProcessor: triggerPostProcessor
   }],
 
   [SymbolType.Stat, {
@@ -253,7 +252,7 @@ const symbolConfigs = new Map<SymbolType, SymbolConfig>([
   }],
 
   [SymbolType.Number, { 
-    symbolType: SymbolType.Number, types: [], fileTypes: [], cache: false, allowRename: false, noop: true, comparisonType: Type.Int  
+    symbolType: SymbolType.Number, types: [Type.Int], fileTypes: [], cache: false, allowRename: false, noop: true, comparisonType: Type.Int  
   }],
 
   [SymbolType.Keyword, { 
@@ -265,7 +264,7 @@ const symbolConfigs = new Map<SymbolType, SymbolConfig>([
   }],
 
   [SymbolType.Boolean, { 
-    symbolType: SymbolType.Boolean, types: [], fileTypes: [], cache: false, allowRename: false, noop: true, comparisonType: Type.Boolean 
+    symbolType: SymbolType.Boolean, types: [Type.Boolean], fileTypes: [], cache: false, allowRename: false, noop: true, comparisonType: Type.Boolean 
   }],
 
   [SymbolType.Null, { 
@@ -273,7 +272,7 @@ const symbolConfigs = new Map<SymbolType, SymbolConfig>([
   }],
 
   [SymbolType.String, { 
-    symbolType: SymbolType.Null, types: [], fileTypes: [], cache: false, allowRename: false, noop: true, comparisonType: Type.String 
+    symbolType: SymbolType.String, types: [Type.String], fileTypes: [], cache: false, allowRename: false, noop: true, comparisonType: Type.String 
   }]
 ]);
 

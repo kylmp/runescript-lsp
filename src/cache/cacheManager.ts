@@ -56,3 +56,7 @@ export function getIdCache(workspace: string): IdCache {
 export function getFileCaches(workspace: string): Map<string, FileCache> {
   return getWorkspaceCache(workspace).getFileCaches();
 }
+
+export function getFileCache(workspace: string, fsPath: string): FileCache | undefined {
+  return getWorkspaceCache(workspace).getFileCaches().get(fsPath);
+}

@@ -3,7 +3,7 @@ import { parseFile, ParseResult, ParserKind } from "./parser/parser.js";
 import { ResolutionMode, resolveParsedResult } from "./resolver/resolver.js";
 import type { FileInfo } from "./types.js";
 import { sendAllHighlights } from "./utils/highlightUtils.js";
-import { log, warn } from "./utils/logger.js";
+import { formatMs, log, warn } from "./utils/logger.js";
 import { startProgress } from "./utils/progressUtils.js";
 import { getMonitoredWorkspaceFiles, getWorkspaceFolders } from "./utils/workspaceUtils.js";
 
@@ -28,7 +28,7 @@ export async function rebuildWorkspace(workspace: string) {
     progress.done();
     return;
   }
-  log(`Rescan: Found ${files.length} files in ${performance.now() - start} ms`);
+  log(`Rescan: Found ${files.length} files in ${formatMs(performance.now() - start)}`);
  
   // Parse files
   let done = 0;
@@ -41,9 +41,6 @@ export async function rebuildWorkspace(workspace: string) {
     files.map(async fileInfo => { 
       cache.addFileCache(fileInfo);
       const result = await parseFile(fileInfo);
-      if (!result) {
-        warn(`Empty file or error parsing ${fileInfo.fsPath}`);
-      }
       const current = ++done;
       if (current % 250 === 0 || current === total) {
         const pct = parsingStartPct + Math.floor(((current / total) * (parsingEndPct - parsingStartPct)));
@@ -52,7 +49,7 @@ export async function rebuildWorkspace(workspace: string) {
       return result;
     })
   )).filter(pf => pf !== undefined);
-  log(`Rescan: Parsed ${parsedFiles.length} files in ${performance.now() - start} ms`);
+  log(`Rescan: Parsed ${parsedFiles.length} files in ${formatMs(performance.now() - start)}`);
 
   // Partition parsed files
   const constants: ParseResult[] = [];
@@ -60,16 +57,15 @@ export async function rebuildWorkspace(workspace: string) {
   const configs: ParseResult[] = [];
   const scripts: ParseResult[] = [];
   const packs: ParseResult[] = [];
+  const tables: ParseResult[] = [];
   for (const pf of parsedFiles) {
-    if (pf.fileInfo.isOpen()) {
-      log(`Open File [${pf.fileInfo.name}.${pf.fileInfo.type}]`);
-    }
     switch (pf.kind) {
       case ParserKind.Gamevar: gameVars.push(pf); break;
       case ParserKind.Constant: constants.push(pf); break;
       case ParserKind.Config: configs.push(pf); break;
-      case ParserKind.Script: scripts.push(pf); break;
+      case ParserKind.Script: scripts.push(pf); break; 
       case ParserKind.Pack: packs.push(pf); break;
+      case ParserKind.DbTable: tables.push(pf); break;
     }
   }
 
@@ -79,17 +75,18 @@ export async function rebuildWorkspace(workspace: string) {
   progress.report(parsingEndPct, 'Resolving symbols...');
   constants.forEach(parsedResult => resolved += resolveParsedResult(parsedResult, cache, ResolutionMode.All));
   gameVars.forEach(parsedResult => resolved += resolveParsedResult(parsedResult, cache, ResolutionMode.All));
+  tables.forEach(parsedResult => resolved += resolveParsedResult(parsedResult, cache, ResolutionMode.All));
   configs.forEach(parsedResult => resolved += resolveParsedResult(parsedResult, cache, ResolutionMode.Definitions));
   scripts.forEach(parsedResult => resolved += resolveParsedResult(parsedResult, cache, ResolutionMode.Definitions));
   configs.forEach(parsedResult => resolved += resolveParsedResult(parsedResult, cache, ResolutionMode.References));
   scripts.forEach(parsedResult => resolved += resolveParsedResult(parsedResult, cache, ResolutionMode.References));
   packs.forEach(parsedResult => resolved += resolveParsedResult(parsedResult, cache, ResolutionMode.All));
-  log(`Rescan: Resolved ${resolved} symbols in ${performance.now() - start} ms`);
+  log(`Rescan: Resolved ${resolved} symbols in ${formatMs(performance.now() - start)}`);
 
   // Report diagnostics?
   sendAllHighlights(cache);
 
-  log(`Finished rescan of workspace [${workspace}] in ${performance.now() - startRescan} ms`);
+  log(`Finished rescan of workspace [${workspace}] in ${formatMs(performance.now() - startRescan)}`);
   progress.report(100, "Indexing complete");
   await new Promise((r) => setTimeout(r, 1000));
   progress.done();
@@ -105,18 +102,13 @@ export async function rebuildFile(fileInfo: FileInfo, text?: string) {
 
   // parse file
   const parsedFile = await parseFile(fileInfo, text);
-  if (!parsedFile) {
-    warn(`Empty file or error parsing ${fileInfo.fsPath}`);
-    return;
-  }
+  if (!parsedFile) return;
 
   // resolve file 
-  resolveParsedResult(parsedFile, cache, ResolutionMode.All);
+  const symbolCount = resolveParsedResult(parsedFile, cache, ResolutionMode.All);
 
-  //sendFileDecorations(fileInfo);
-
-  // diagnostics
-  // if open file => add semantic tokens, add highlights
+  // diagnostics?
+  log(`Rebuilt file [${fileInfo.name}.${fileInfo.type}] and resolved ${symbolCount} symbols in ${formatMs(performance.now() - start)}`);
 }
 
 export function disposeWorkspace(workspace: string) {

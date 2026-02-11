@@ -39,3 +39,7 @@ export function logFileEvent(eventName: string, fileInfo: FileInfo) {
 export function logWorkspaceEvent(workspace: string, opened: boolean) {
   log(`Workspace change event: workspace ${opened ? 'opened' : 'closed'} [${workspace}]`); 
 }
+
+export function formatMs(millis: number) {
+  return `${millis.toFixed(2)} ms`;
+}

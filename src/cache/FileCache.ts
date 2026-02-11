@@ -1,6 +1,11 @@
 import { Range } from "vscode-languageserver";
 import { DataRange, FileInfo, ResolvedSymbol, RunescriptSymbol } from "../types.js";
-import { findMatchInRange } from "../utils/resolverUtils.js";
+import { findMatchInRange, resolveDefDataRange } from "../utils/resolverUtils.js";
+import { Position } from "vscode-languageserver-textdocument";
+import { addReference, buildSymbolFromDec } from "../utils/symbolBuilder.js";
+import { SymbolType } from "../resource/enum/symbolTypes.js";
+import { warn } from "../utils/logger.js";
+import { getSymbolConfig } from "../resource/symbolConfig.js";
 
 export class FileCache {
   // Cache of all symbols in the file, per line
@@ -51,6 +56,10 @@ export class FileCache {
     symbols.push(symbol);
   }
 
+  getAtPosition(position: Position): DataRange<ResolvedSymbol> | undefined {
+    return findMatchInRange(position.character, this.fileSymbols.get(position.line))
+  }
+
   getSymbols(): Map<number, DataRange<ResolvedSymbol>[]> {
     return this.fileSymbols;
   }
@@ -59,10 +68,35 @@ export class FileCache {
     return this.symbolRanges;
   }
 
+  addLocalVariable(localVar: RunescriptSymbol, lineNum: number, start: number, end: number) {
+    const scriptName = this.getScriptName(lineNum);
+    if (!scriptName) return undefined;
+    const scriptLocalVariables = this.localVarCache.get(scriptName.data) ?? new Map<string, RunescriptSymbol>();
+    scriptLocalVariables.set(localVar.name, localVar);
+    this.localVarCache.set(scriptName.data, scriptLocalVariables);
+    const resolvedLocalVar = { start, end, data: { symbol: localVar, symbolConfig: getSymbolConfig(SymbolType.LocalVar), declaration: true}};
+    this.addSymbol(lineNum, resolvedLocalVar);
+  }
+
+  addLocalVariableReference(name: string, lineNum: number, start: number, end: number) {
+    const scriptName = this.getScriptName(lineNum);
+    if (!scriptName) return undefined;
+    const scriptLocalVariables = this.localVarCache.get(scriptName.data) ?? new Map<string, RunescriptSymbol>();
+    const localVarSymbol = scriptLocalVariables.get(name);
+    if (!localVarSymbol) {
+      warn(`Tried to add local var reference but the definition doesn't exist. localVar=${name}, file=${this.fileInfo.fsPath}`);
+      return;
+    }
+    const refs = addReference(localVarSymbol, this.fileInfo.fsPath, lineNum, start, end);
+    localVarSymbol.references[this.fileInfo.fsPath] = refs;
+    const resolvedLocalVar = { start, end, data: { symbol: localVarSymbol, symbolConfig: getSymbolConfig(SymbolType.LocalVar), declaration: false}};
+    this.addSymbol(lineNum, resolvedLocalVar); 
+  }
+
   getLocalVariable(lineNum: number, name: string): RunescriptSymbol | undefined {
-    const script = this.getScriptName(lineNum);
-    if (!script) return undefined;
-    const scriptLocalVariables = this.localVarCache.get(script.data);
+    const scriptName = this.getScriptName(lineNum);
+    if (!scriptName) return undefined;
+    const scriptLocalVariables = this.localVarCache.get(scriptName.data);
     if (!scriptLocalVariables) return undefined;
     return scriptLocalVariables.get(name);
   }

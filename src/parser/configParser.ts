@@ -2,6 +2,7 @@ import { getFileConfigData } from "../resource/configKeys.js";
 import { getConfigInclusions } from "../resource/enum/displayItems.js";
 import { fileTypeToSymbolType } from "../resource/symbolConfig.js";
 import type { ConfigData, FileConfigData, ParsedWord } from "../types.js";
+import { getInfo } from "../utils/symbolBuilder.js";
 import { type ParseRequest, type ParseResult, ParserKind } from "./parser.js";
 
 enum ConfigWordType {
@@ -20,7 +21,8 @@ interface ConfigWord extends ParsedWord {
 interface ConfigItem {
   parsedWords: Map<number, ConfigWord[]>;
   configData: Map<number, ConfigData>;
-  displayLines: Map<string, string>;
+  displayLines: Map<string, string[]>;
+  info: string | undefined;
   startLine: number;
   endLine: number;
 }
@@ -206,9 +208,10 @@ export function parseConfigItem(lines: string[], startLine: number, configData: 
 
   if (definitionLine < 0) return undefined;
 
+  const info = getInfo(lines[definitionLine - 1]);
   const parsedWords = new Map<number, ConfigWord[]>();
   const configDataByLine = new Map<number, ConfigData>();
-  const displayLines = new Map<string, string>();
+  const displayLines = new Map<string, string[]>();
 
   const definitionWord = parseDefinitionWord(lines[definitionLine]);
   if (definitionWord) {
@@ -235,7 +238,9 @@ export function parseConfigItem(lines: string[], startLine: number, configData: 
     const parsed = parseKeyValueWords(line, parsedKey.key, parsedKey.equalsIndex, parsedKey.keyStart);
 
     if (isDisplayKey) {
-      displayLines.set(parsedKey.key, parsed.value);
+      const val = displayLines.get(parsedKey.key) ?? [];
+      val.push(parsed.value);
+      displayLines.set(parsedKey.key, val);
     }
 
     if (match) {
@@ -249,6 +254,7 @@ export function parseConfigItem(lines: string[], startLine: number, configData: 
     parsedWords,
     configData: configDataByLine,
     displayLines,
+    info,
     startLine: definitionLine,
     endLine
   };

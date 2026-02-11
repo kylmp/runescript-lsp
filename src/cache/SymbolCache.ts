@@ -2,7 +2,7 @@ import { SymbolType } from "../resource/enum/symbolTypes.js";
 import { getSymbolConfig } from "../resource/symbolConfig.js";
 import { SymbolKey, RunescriptSymbol, FileKey, FileSymbols } from "../types.js";
 import { decodeReference, resolveSymbolKey } from "../utils/cacheUtils.js";
-import { addReference, buildFromReference } from "../utils/symbolBuilder.js";
+import { addReference, buildSymbolFromRef } from "../utils/symbolBuilder.js";
 import { CompletionCache } from "./CompletionCache.js";
 
 export class SymbolCache {
@@ -56,39 +56,42 @@ export class SymbolCache {
     }
 
     // Make sure cache keys resolve correctly
-    const key = symbol.cacheKey;
+    const key = symbol.cacheKey!;
     const fileKey = fsPath as FileKey;
 
     // Retrieve current symbol from cache (if any)
     let currentSymbol: RunescriptSymbol | undefined = this.symbolCache.get(key);
 
     // If the current symbol in cache already is the declaration, don't overwrite 
-    if (currentSymbol && currentSymbol.declaration) {
+    if (currentSymbol?.declaration) {
       return currentSymbol;
     }
 
-    // Copy existing (refernces only) symbol values (reference & id) into the new declaration symbol
-    if (currentSymbol && currentSymbol.id) symbol.id = currentSymbol.id;
-    if (currentSymbol && !currentSymbol.declaration) symbol.references = currentSymbol.references;
+    if (!currentSymbol) {
+      currentSymbol = symbol;
+    }
+
+    if (!currentSymbol.declaration) {
+      currentSymbol.declaration = symbol.declaration;
+    }
+
+    this.symbolCache.set(key, currentSymbol);
 
     // Add the declarartion to the file map 
     this.addToFileMap(fileKey, key, true);
 
-    // Add the symbol to the cache
-    this.symbolCache.set(key, symbol);
-
     // Add the symbol name to the completion cache
-    this.completionCache.put(symbol.name, symbol.symbolType);
+    this.completionCache.put(currentSymbol.name, currentSymbol.symbolType);
 
     // Also insert the declaration as a reference 
-    const ref = decodeReference(symbol.declaration.ref);
+    const ref = decodeReference(currentSymbol.declaration.ref);
     if (ref) {
       const { line, start, end } = ref;
-      this.putReference(symbol.name, symbol.symbolType, fsPath, line, start, end);
+      this.putReference(currentSymbol.name, currentSymbol.symbolType, fsPath, currentSymbol.fileType ?? 'rs2', line, start, end);
     }
 
     // Return the symbol
-    return symbol;
+    return currentSymbol;
   }
 
   /**
@@ -96,33 +99,32 @@ export class SymbolCache {
    * @param name symbol name
    * @param symbolType symbol type for this reference
    * @param fsPath file fsPath the reference is found in
+   * @param fileType file type the reference is found in
    * @param lineNum line number within the file the reference is found on
    * @param startIndex the index within the line where the reference word starts
    * @param endIndex the index within the line where the reference word ends
    */
-  putReference(name: string, symbolType: SymbolType, fsPath: string, lineNum: number, startIndex: number, endIndex: number, id?: string): RunescriptSymbol {
+  putReference(name: string, symbolType: SymbolType, fsPath: string, fileType: string, lineNum: number, startIndex: number, endIndex: number, id?: string): RunescriptSymbol {
     // Make sure cache keys resolve correctly
     const key = resolveSymbolKey(name, symbolType);
     const fileKey = fsPath as FileKey;
 
     // If the symbol doesn't yet exist in the cache, build it
     if (!this.symbolCache.has(key)) {
-      this.symbolCache.set(key, buildFromReference(name, symbolType));
+      this.symbolCache.set(key, buildSymbolFromRef(name, symbolType, fileType));
     }
 
     // Get the current references for this identifier in the current file (if any) and add this new reference
     const currentSymbol = this.symbolCache.get(key)!;
-    const fileReferences = addReference(currentSymbol, fileKey, lineNum, startIndex, endIndex, id);
+    addReference(currentSymbol, fileKey, lineNum, startIndex, endIndex, id);
 
     // Add the reference to the file map
     this.addToFileMap(fileKey, key, false);
 
-    // Update the symbol in the symbol cache with the new references
-    currentSymbol.references[fileKey] = fileReferences;
-
     // If the matchType of this identifier is reference only, add the data to the completion cache (others will get added when the declaration is added)
-    if (getSymbolConfig(symbolType)?.referenceOnly) this.completionCache.put(name, symbolType);
-
+    const symbolConfig = getSymbolConfig(symbolType);
+    if (symbolConfig?.referenceOnly) this.completionCache.put(name, symbolType);
+    if (symbolConfig?.cache) currentSymbol.cacheKey = key;
     return currentSymbol;
   }
 

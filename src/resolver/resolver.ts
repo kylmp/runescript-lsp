@@ -1,12 +1,15 @@
-import type { DataRange, ResolvedDefData, ResolvedRefData, ResolvedSymbol, RunescriptSymbol } from "../types.js";
+import type { DataRange, ResolvedData, ResolvedSymbol, RunescriptSymbol } from "../types.js";
 import { type ParseResult, ParserKind } from "../parser/parser.js";
 import { ConfigResolver } from "./configResolver.js";
 import { ConstantResolver } from "./constantResolver.js";
 import { PackResolver } from "./packResolver.js";
-import { ScriptResolver } from "./scriptResolver.js";
-import { buildFromReference } from "../utils/symbolBuilder.js";
-import { FileCache } from "../cache/FileCache.js";
+import { ScriptResolver } from "./runescriptResolver.js";
+import { buildSymbolFromRef } from "../utils/symbolBuilder.js";
 import { WorkspaceCache } from "../cache/WorkspaceCache.js";
+import { warn } from "../utils/logger.js";
+import { SymbolType } from "../resource/enum/symbolTypes.js";
+import { SymbolCache } from "../cache/SymbolCache.js";
+import { DbTableResolver } from "./dbtableResolver.js"; 
 
 export enum ResolutionMode {
   Definitions = "definitions",
@@ -14,11 +17,10 @@ export enum ResolutionMode {
   All = "all"
 }
 
-type resolveDefFn = (parseResult: ParseResult, cache: WorkspaceCache, fileCache: FileCache | undefined) => DataRange<ResolvedDefData>[];
-type resolveRefFn = (parseResult: ParseResult, cache: WorkspaceCache, fileCache: FileCache | undefined) => DataRange<ResolvedRefData>[];
+type resolveFn = (parseResult: ParseResult, cache: WorkspaceCache) => DataRange<ResolvedData>[];
 export type Resolver = {
-  resolveDefinitions: resolveDefFn
-  resolveReferences: resolveRefFn
+  resolveDefinitions: resolveFn
+  resolveReferences: resolveFn
 }
 
 function getResolver(parserKind: ParserKind): Resolver | undefined {
@@ -28,6 +30,7 @@ function getResolver(parserKind: ParserKind): Resolver | undefined {
     case ParserKind.Config: return ConfigResolver;
     case ParserKind.Gamevar: return ConfigResolver;
     case ParserKind.Constant: return ConstantResolver;
+    case ParserKind.DbTable: return DbTableResolver;
   }
 }
 
@@ -36,55 +39,21 @@ export function resolveParsedResult(parseResult: ParseResult, cache: WorkspaceCa
   const resolver = getResolver(parseResult.kind);
   if (!resolver) return 0;
   let resolvedCount = 0;
-  const fileCache = cache.getFileCache(parseResult.fileInfo.fsPath);
   if (resolutionMode === ResolutionMode.All || resolutionMode === ResolutionMode.Definitions) {
-    resolvedCount += resolveAndCacheDefinitions(resolver.resolveDefinitions, parseResult, cache, fileCache);
+    resolvedCount += resolveAndCacheSymbols(resolver.resolveDefinitions, parseResult, cache);
   }
   if (resolutionMode === ResolutionMode.All || resolutionMode === ResolutionMode.References) {
-    resolvedCount += resolveAndCacheReferences(resolver.resolveReferences, parseResult, cache, fileCache);
+    resolvedCount += resolveAndCacheSymbols(resolver.resolveReferences, parseResult, cache);
   }
   return resolvedCount;
 }
 
-function resolveAndCacheDefinitions(resolveFn: resolveDefFn, parseResult: ParseResult, cache: WorkspaceCache, fileCache?: FileCache): number {
-  const resolvedDefs = resolveFn(parseResult, cache, fileCache);
-  for (const resolved of resolvedDefs) {
-    if (resolved.data.symbolConfig.cache) {
-      cache.getSymbolCache().put(resolved.data.symbol, parseResult!.fileInfo.fsPath);
-    }
-    if (fileCache) {
-      const resolvedSymbol: DataRange<ResolvedSymbol> = { 
-        start: resolved.start, 
-        end: resolved.end, 
-        data: {
-          symbol: resolved.data.symbol,
-          symbolConfig: resolved.data.symbolConfig,
-          definition: true
-        }
-      }
-      fileCache.addSymbol(resolved.data.line, resolvedSymbol);
-    }
-  }
-  return resolvedDefs.length;
-}
-
-function resolveAndCacheReferences(resolveFn: resolveRefFn, parseResult: ParseResult, cache: WorkspaceCache, fileCache?: FileCache): number {
-  const resolvedRefs = resolveFn(parseResult, cache, fileCache)
-  for (const resolved of resolvedRefs) {
-    let symbol: RunescriptSymbol | undefined;
-    if (resolved.data.symbolConfig.cache) {
-      symbol = cache.getSymbolCache().putReference(
-        resolved.data.name,
-        resolved.data.symbolConfig.symbolType, 
-        parseResult!.fileInfo.fsPath,
-        resolved.data.line,
-        resolved.start, 
-        resolved.end,
-        resolved.data.id
-      );
-    } else {
-      symbol = buildFromReference(resolved.data.name, resolved.data.symbolConfig.symbolType);
-    }
+function resolveAndCacheSymbols(resolveFn: resolveFn, parseResult: ParseResult, cache: WorkspaceCache): number {
+  const resolvedSymbols = resolveFn(parseResult, cache);
+  const symbolCache = cache.getSymbolCache();
+  const fileCache = cache.getFileCache(parseResult.fileInfo.fsPath);
+  for (const resolved of resolvedSymbols) {
+    const symbol = resolveSymbol(resolved, parseResult, symbolCache);
     if (fileCache) {
       const resolvedSymbol: DataRange<ResolvedSymbol> = { 
         start: resolved.start, 
@@ -92,11 +61,53 @@ function resolveAndCacheReferences(resolveFn: resolveRefFn, parseResult: ParseRe
         data: {
           symbol: symbol,
           symbolConfig: resolved.data.symbolConfig,
-          definition: false
+          declaration: resolved.data.declaration,
+          context: resolved.data.context
         }
       }
       fileCache.addSymbol(resolved.data.line, resolvedSymbol);
     }
   }
-  return resolvedRefs.length;
+  return resolvedSymbols.length;
+}
+
+function validateResolvedData(resolved: DataRange<ResolvedData>, parseResult: ParseResult): boolean {
+  if (resolved.data.declaration && (!resolved.data.symbol || !resolved.data.symbolConfig.cache)) {
+    warn(`Resolved declarations must provide a symbol and be cachable. line=${resolved.data.line}, start=${resolved.start}, end=${resolved.end}, expectedType=${resolved.data.symbolConfig.symbolType} file=${parseResult.fileInfo.fsPath}`);
+    return false;
+  }
+  if (!resolved.data.declaration && resolved.data.symbolConfig.cache && !resolved.data.name) {
+    warn(`Cachable references must provide name. line=${resolved.data.line}, start=${resolved.start}, end=${resolved.end}, expectedType=${resolved.data.symbolConfig.symbolType} file=${parseResult.fileInfo.fsPath}`);
+    return false;
+  }
+  if (!resolved.data.declaration && !resolved.data.symbolConfig.cache && !resolved.data.symbol) {
+    warn(`Non-cachable references must provide symbol. line=${resolved.data.line}, start=${resolved.start}, end=${resolved.end}, expectedType=${resolved.data.symbolConfig.symbolType} file=${parseResult.fileInfo.fsPath}`);
+    return false;
+  }
+  return true;
+}
+
+function resolveSymbol(resolved: DataRange<ResolvedData>, parseResult: ParseResult, symbolCache: SymbolCache): RunescriptSymbol {
+  if (resolved.data.symbolConfig.symbolType === SymbolType.Unknown || !validateResolvedData(resolved, parseResult)) {
+    const name = resolved.data.symbol?.name ?? resolved.data.name ?? 'unknown';
+    return buildSymbolFromRef(name, SymbolType.Unknown, parseResult.fileInfo.type);
+  }
+  if (resolved.data.declaration) {
+    return symbolCache.put(resolved.data.symbol!, parseResult.fileInfo.fsPath)!;
+  } else {
+    if (resolved.data.symbolConfig.cache) {
+      return symbolCache.putReference(
+        resolved.data.name!,
+        resolved.data.symbolConfig.symbolType, 
+        parseResult.fileInfo.fsPath,
+        parseResult.fileInfo.type,
+        resolved.data.line,
+        resolved.start, 
+        resolved.end,
+        resolved.data.id
+      );
+    } else {
+      return resolved.data.symbol!;
+    }
+  }
 }

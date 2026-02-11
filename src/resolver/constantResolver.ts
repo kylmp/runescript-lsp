@@ -1,12 +1,10 @@
-import type { FileCache } from "../cache/FileCache.js";
-import type { WorkspaceCache } from "../cache/WorkspaceCache.js";
 import { ConstantFile } from "../parser/constantParser.js";
 import type { ParseResult } from "../parser/parser.js";
 import { COORD_REGEX, NUMBER_REGEX } from "../resource/enum/regex.js";
 import { SymbolType } from "../resource/enum/symbolTypes.js";
-import type { DataRange, ResolvedDefData, ResolvedRefData } from "../types.js";
-import { buildDefDataRange } from "../utils/resolverUtils.js";
-import { buildFromReference } from "../utils/symbolBuilder.js";
+import type { DataRange, ResolvedData } from "../types.js";
+import { resolveDefDataRange } from "../utils/resolverUtils.js";
+import { buildSymbolFromRef, buildSymbolFromDec } from "../utils/symbolBuilder.js";
 import type { Resolver } from "./resolver.js";
 
 export const ConstantResolver: Resolver = {
@@ -14,26 +12,28 @@ export const ConstantResolver: Resolver = {
   resolveReferences
 }
 
-function resolveDefinitions(parseResult: ParseResult, cache: WorkspaceCache, fileCache: FileCache | undefined): DataRange<ResolvedDefData>[] {
+function resolveDefinitions(parseResult: ParseResult): DataRange<ResolvedData>[] {
   const file = parseResult.data as ConstantFile;
-  const symbols: DataRange<ResolvedDefData>[] = [];
+  const symbols: DataRange<ResolvedData>[] = [];
   for (const [line, constantWords] of file.constants) {
     if (constantWords.length === 2) {
       const value = constantWords[1];
       const valueType = resolveLiteral(value.text);
-      const valueSymbol = buildFromReference(value.text, valueType);
+      const valueSymbol = buildSymbolFromRef(value.text, valueType, parseResult.fileInfo.type);
 
       const constant = constantWords[0];
-      const constantSymbol = buildFromReference(constant.text, SymbolType.Constant);
-      
-      symbols.push(buildDefDataRange(constant, line, constantSymbol));
-      symbols.push(buildDefDataRange(value, line, valueSymbol));
+      const constantSymbol = buildSymbolFromDec(constant.text, SymbolType.Constant, parseResult.fileInfo, line, constant.start, constant.end);
+      constantSymbol.block = `^${constant.text} = ${value.text}`;
+      constantSymbol.comparisonTypes = [valueType];
+
+      symbols.push(resolveDefDataRange(constant.start, constant.end, line, constantSymbol, true));
+      symbols.push(resolveDefDataRange(value.start, value.end, line, valueSymbol, false));
     }
   }
   return symbols;
 }
 
-function resolveReferences(parseResult: ParseResult, cache: WorkspaceCache, fileCache: FileCache | undefined): DataRange<ResolvedRefData>[] {
+function resolveReferences(): DataRange<ResolvedData>[] {
   return [];
 }
 

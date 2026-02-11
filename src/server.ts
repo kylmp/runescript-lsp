@@ -88,9 +88,9 @@ registerSettingsChangeHandlers(connection);
 registerGitEventHandlers(connection);
 
 // LSP capability handlers (goto def, find refs, etc...)
-registerDefinitionHandler(connection, documents);
+registerDefinitionHandler(connection);
 registerCommandHandlers(connection);
-registerHoverHandler(connection, documents);
+registerHoverHandler(connection);
 
 // Listeners
 documents.listen(connection);

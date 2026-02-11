@@ -1,5 +1,8 @@
+import { Location, Position, Range } from "vscode-languageserver";
+import { SymbolType } from "../resource/enum/symbolTypes.js";
 import { getSymbolConfig } from "../resource/symbolConfig.js";
-import { DataRange, ParsedWord, ResolvedDefData, RunescriptSymbol } from "../types.js";
+import { DataRange, ResolvedData, RunescriptSymbol, SymbolConfig } from "../types.js";
+import { buildSymbolFromRef } from "./symbolBuilder.js";
 
 /**
  * Binary search to find the match of a data range list at the index provided, if there is one
@@ -21,14 +24,57 @@ export function findMatchInRange<T>(index: number, items?: DataRange<T>[]): Data
   return undefined;
 }
 
-export function buildDefDataRange(word: ParsedWord, line: number, symbol: RunescriptSymbol): DataRange<ResolvedDefData> {
+export function buildLocation(start: number, end: number, line: number, uri: string): Location {
+  return Location.create(uri, buildRange(start, end, line));
+}
+
+export function buildRange(start: number, end: number, line: number): Range {
+  return Range.create(buildPosition(start, line), buildPosition(end, line));
+}
+
+export function buildPosition(index: number, line: number): Position {
+  return Position.create(line, index);
+}
+
+export function resolveRefDataRange(symbolType: SymbolType, start: number, end: number, line: number, name: string, fileType: string, context?: Record<string, any>) {
+  const symbolConfig = getSymbolConfig(symbolType);
+  if (symbolConfig.cache) {
+    return dataRangeFromRef(start, end, line, symbolConfig, name, context);
+  } else {
+    return dataRangeFromSymbol(start, end, line, buildSymbolFromRef(name, symbolType, fileType), false, context);
+  }
+}
+
+export function resolveDefDataRange(start: number, end: number, line: number, symbol: RunescriptSymbol, declaration: boolean, context?: Record<string, any>): DataRange<ResolvedData> {
+  return dataRangeFromSymbol(start, end, line, symbol, declaration, context);
+}
+
+
+function dataRangeFromRef(start: number, end: number, line: number, symbolConfig: SymbolConfig, name: string, context?: Record<string, any>): DataRange<ResolvedData> {
   return { 
-    start: word.start, 
-    end: word.end, 
+    start,
+    end,
     data: { 
-      symbol: symbol, 
-      symbolConfig: 
-      getSymbolConfig(symbol.symbolType), line 
+      declaration: false,
+      symbolConfig,
+      line,
+      name,
+      id: context?.id,
+      context
+    }
+  };
+}
+
+function dataRangeFromSymbol(start: number, end: number, line: number, symbol: RunescriptSymbol, declaration: boolean, context?: Record<string, any>): DataRange<ResolvedData> {
+  return { 
+    start, 
+    end,
+    data: { 
+      declaration,
+      symbolConfig: getSymbolConfig(symbol.symbolType),
+      line,
+      symbol,
+      context
     }
   };
 }

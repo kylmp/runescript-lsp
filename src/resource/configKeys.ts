@@ -7,6 +7,9 @@ import { monitoredFileTypes } from "../utils/fileUtils.js";
 const configDataByFileType: Map<FileType, FileConfigData> = new Map();
 
 export function getFileConfigData(fileType: FileType): FileConfigData {
+  if (configDataByFileType.size === 0) {
+    initConfigDataByFileType();
+  }
   return configDataByFileType.get(fileType) ?? { directMap: new Map(), regexMap: new Map() };
 }
 
@@ -62,14 +65,19 @@ const regexConfigKeys: RegexConfigData[] = [
 /**
  * Build the "known config keys" by file type map used by the parser
  */
-const nonConfigTypes = [FileType.Pack, FileType.Rs2, FileType.Constant];
-monitoredFileTypes.forEach(fileType => {
-  if (fileType in nonConfigTypes) return;
-  const fileTypeConfig: FileConfigData = { directMap: new Map(), regexMap: new Map() };
-  configKeys.forEach(ck => fileTypeConfig.directMap.set(ck.key!, ck));
-  regexConfigKeys.forEach(rck => { if (fileType in rck.fileTypes) fileTypeConfig.regexMap.set(rck.regex, rck) });
-  configDataByFileType.set(fileType, fileTypeConfig);
-});
+const nonConfigTypes = new Set<FileType>([FileType.Pack, FileType.Rs2, FileType.Constant]);
+
+function initConfigDataByFileType(): void {
+  monitoredFileTypes.forEach(fileType => {
+    if (fileType in nonConfigTypes) return;
+    const fileTypeConfig: FileConfigData = { directMap: new Map(), regexMap: new Map() };
+    configKeys.forEach(ck => fileTypeConfig.directMap.set(ck.key!, ck));
+    regexConfigKeys.forEach(rck => { 
+      if (rck.fileTypes.includes(fileType as FileType)) fileTypeConfig.regexMap.set(rck.regex, rck) 
+    });
+    configDataByFileType.set(fileType, fileTypeConfig);
+  });
+}
 
 /**
  * Caches config keys found during matching, used by completion provider to suggest values

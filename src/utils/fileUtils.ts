@@ -4,9 +4,9 @@ import { URI } from "vscode-uri";
 import { END_OF_LINE_REGEX } from "../resource/enum/regex.js";
 import { FileInfo } from "../types.js";
 import { FileType } from "../resource/enum/fileTypes.js";
-import { getAllSymbolConfigs } from "../resource/symbolConfig.js";
-import { findWorkspaceFolder, getWorkspaceFolders } from "./workspaceUtils.js";
+import { findWorkspaceFolder } from "./workspaceUtils.js";
 import { isOpenDocument } from "./documentUtils.js";
+import { getAllSymbolConfigs } from "../resource/symbolConfig.js";
 
 /**
  * Map a uri into a resolved fsPath
@@ -47,6 +47,10 @@ export function fsPathToFileInfo(fsPath: string): FileInfo {
   const fileSplit = fsPath.split('\\').pop()!.split('/').pop()!.split('.');
   const type = fileSplit[1] as FileType;
   return { uri, fsPath, workspace, name: fileSplit[0], type, isMonitored: monitoredFileTypes.has(type), isOpen: () => isOpenDocument(uri) };
+}
+
+export function fsPathToUri(fsPath: string): string {
+  return URI.file(fsPath).toString();
 }
 
 /**
