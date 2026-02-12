@@ -56,7 +56,7 @@ export class SymbolCache {
     }
 
     // Make sure cache keys resolve correctly
-    const key = symbol.cacheKey!;
+    const key = resolveSymbolKey(symbol.cacheName!, symbol.symbolType);
     const fileKey = fsPath as FileKey;
 
     // Retrieve current symbol from cache (if any)
@@ -74,6 +74,7 @@ export class SymbolCache {
     if (!currentSymbol.declaration) {
       currentSymbol.declaration = symbol.declaration;
     }
+    currentSymbol.cacheName = symbol.cacheName;
 
     this.symbolCache.set(key, currentSymbol);
 
@@ -87,7 +88,7 @@ export class SymbolCache {
     const ref = decodeReference(currentSymbol.declaration.ref);
     if (ref) {
       const { line, start, end } = ref;
-      this.putReference(currentSymbol.name, currentSymbol.symbolType, fsPath, currentSymbol.fileType ?? 'rs2', line, start, end);
+      this.putReference(currentSymbol.cacheName!, currentSymbol.symbolType, fsPath, currentSymbol.fileType ?? 'rs2', line, start, end);
     }
 
     // Return the symbol
@@ -124,7 +125,7 @@ export class SymbolCache {
     // If the matchType of this identifier is reference only, add the data to the completion cache (others will get added when the declaration is added)
     const symbolConfig = getSymbolConfig(symbolType);
     if (symbolConfig?.referenceOnly) this.completionCache.put(name, symbolType);
-    if (symbolConfig?.cache) currentSymbol.cacheKey = key;
+    if (symbolConfig?.cache) currentSymbol.cacheName = name;
     return currentSymbol;
   }
 

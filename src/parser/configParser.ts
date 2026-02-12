@@ -5,7 +5,7 @@ import type { ConfigData, FileConfigData, ParsedWord } from "../types.js";
 import { getInfo } from "../utils/symbolBuilder.js";
 import { type ParseRequest, type ParseResult, ParserKind } from "./parser.js";
 
-enum ConfigWordType {
+export enum ConfigWordType {
   Definition = "definition",
   Key = "key",
   Value = "value",

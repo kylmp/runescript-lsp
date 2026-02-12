@@ -5,7 +5,7 @@ import { SymbolType } from './enum/symbolTypes.js';
 import { Type } from './enum/types.js';
 import { Language } from './enum/languages.js';
 import { FileType } from './enum/fileTypes.js';
-import { categoryPostProcessor, columnPostProcessor, componentPostProcessor, configKeyPostProcessor, coordPostProcessor, enumPostProcessor, fileNamePostProcessor, gameVarPostProcessor, localVarPostProcessor, rowPostProcessor, triggerPostProcessor } from './symbolPostProcessors.js';
+import { categoryPostProcessor, columnPostProcessor, componentPostProcessor, coordPostProcessor, enumPostProcessor, fileNamePostProcessor, gameVarPostProcessor, localVarPostProcessor, paramPostProcessor, rowPostProcessor } from './symbolPostProcessors.js';
 
 export function getSymbolConfig(symbolType: SymbolType): SymbolConfig {
   return symbolConfigs.get(symbolType) ?? symbolConfigs.get(SymbolType.Unknown)!;
@@ -112,13 +112,13 @@ const symbolConfigs = new Map<SymbolType, SymbolConfig>([
   }],
 
   [SymbolType.Dbcolumn, {
-    symbolType: SymbolType.Dbcolumn, types: [Type.Dbcolumn], fileTypes: [FileType.Dbtable], cache: true, allowRename: true,
+    symbolType: SymbolType.Dbcolumn, types: [Type.Dbcolumn], fileTypes: [FileType.Dbtable], cache: true, allowRename: true, qualifiedName: true,
     hoverConfig: { declarationItems: [DisplayItem.Title, DisplayItem.Info, DisplayItem.Codeblock], referenceItems: [DisplayItem.Title, DisplayItem.Info, DisplayItem.Codeblock], language: Language.Runescript },
     postProcessor: columnPostProcessor
   }],
 
   [SymbolType.Dbrow, {
-    symbolType: SymbolType.Dbrow, types: [Type.Dbrow], fileTypes: [FileType.Dbrow], cache: true, allowRename: true,
+    symbolType: SymbolType.Dbrow, types: [Type.Dbrow], fileTypes: [FileType.Dbrow], cache: true, allowRename: true, qualifiedName: true,
     hoverConfig: { declarationItems: [DisplayItem.Title, DisplayItem.Info], referenceItems: [DisplayItem.Title, DisplayItem.Info, DisplayItem.Codeblock], language: Language.Dbrowconfig, configInclusions: ['table'] },
     semanticTokenConfig: { declaration: SemanticTokenType.Function },
     postProcessor: rowPostProcessor
@@ -136,15 +136,15 @@ const symbolConfigs = new Map<SymbolType, SymbolConfig>([
   }],
 
   [SymbolType.Component, {
-    symbolType: SymbolType.Component, types: [Type.Component], fileTypes: [FileType.If], cache: true, allowRename: true,
+    symbolType: SymbolType.Component, types: [Type.Component], fileTypes: [FileType.If], cache: true, allowRename: true, qualifiedName: true, 
     hoverConfig: { declarationItems: [DisplayItem.Title, DisplayItem.Info], referenceItems: [DisplayItem.Title, DisplayItem.Info], language: Language.Interface },
     postProcessor: componentPostProcessor
   }],
 
   [SymbolType.Param, {
     symbolType: SymbolType.Param, types: [Type.Param], fileTypes: [FileType.Param], cache: true, allowRename: true,
-    hoverConfig: { declarationItems: [DisplayItem.Title, DisplayItem.Info], referenceItems: [DisplayItem.Title, DisplayItem.Info, DisplayItem.Codeblock], language: Language.Paramconfig },
-    // postProcessor: paramPostProcessor
+    hoverConfig: { declarationItems: [DisplayItem.Title, DisplayItem.Info], referenceItems: [DisplayItem.Title, DisplayItem.Info, DisplayItem.Codeblock], language: Language.Paramconfig, configInclusions: ['type'] },
+    postProcessor: paramPostProcessor
   }],
 
   [SymbolType.Command, {
@@ -207,13 +207,11 @@ const symbolConfigs = new Map<SymbolType, SymbolConfig>([
   [SymbolType.ConfigKey, {
     symbolType: SymbolType.ConfigKey, types: [], cache: false, allowRename: false,
     hoverConfig: { referenceItems: [DisplayItem.Title, DisplayItem.Info] },
-    postProcessor: configKeyPostProcessor
   }],
 
   [SymbolType.Trigger, {
     symbolType: SymbolType.Trigger, types: [], cache: false, allowRename: false,
     hoverConfig: { referenceItems: [DisplayItem.Title, DisplayItem.Info] },
-    postProcessor: triggerPostProcessor
   }],
 
   [SymbolType.Stat, {

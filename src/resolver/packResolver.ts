@@ -2,6 +2,7 @@ import type { WorkspaceCache } from "../cache/WorkspaceCache.js";
 import { PackFile } from "../parser/packParser.js";
 import type { ParseResult } from "../parser/parser.js";
 import { FileType } from "../resource/enum/fileTypes.js";
+import { SymbolType } from "../resource/enum/symbolTypes.js";
 import { fileTypeToSymbolType, getSymbolConfig, typeToSymbolType } from "../resource/symbolConfig.js";
 import type { DataRange, ResolvedData } from "../types.js";
 import { resolveRefDataRange } from "../utils/resolverUtils.js";
@@ -22,9 +23,12 @@ function resolveReferences(parseResult: ParseResult, cache: WorkspaceCache): Dat
   let fileName = parseResult.fileInfo.name;
   if (fileName === 'model') fileName = FileType.Ob2;
   if (fileName === 'interface') fileName = FileType.If;
-  const symbolType = fileTypeToSymbolType(fileName as FileType);
+  let symbolType = fileTypeToSymbolType(fileName as FileType);
   const resolvedRefs: DataRange<ResolvedData>[] = [];
   for (const [line, packObj] of file.packLines) {
+    if (fileName === FileType.If) {
+      symbolType = packObj.value.text.indexOf(':') === -1 ? SymbolType.Interface : SymbolType.Component;
+    }
     const resolved = resolveRefDataRange(symbolType, packObj.value.start, packObj.value.end, line, packObj.value.text, parseResult.fileInfo.type, {id: packObj.id});
     idCache.add(symbolType, resolved.data.id!, resolved.data.name!);
     resolvedRefs.push(resolved);

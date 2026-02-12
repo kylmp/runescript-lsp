@@ -26,7 +26,8 @@ interface RegexConfigData extends ConfigData {
  */
 export enum ConfigVarArgSrc {
   BlockName = 'blockName',
-  FirstParam = 'firstParam'
+  FirstParam = 'firstParam',
+  Column = 'column',
 }
 
 /**
@@ -34,19 +35,19 @@ export enum ConfigVarArgSrc {
  * No need to specify fileType here with a simple key lookup
  */
 const configKeys: ConfigData[] = [
-  { key: 'walkanim', params: [Type.Seq, Type.Seq, Type.Seq, Type.Seq]},
-  { key: 'multivar', params: [Type.Var] },
-  { key: 'multiloc', params: [Type.Int, Type.Loc] },
-  { key: 'multinpc', params: [Type.Int, Type.Npc] },
-  { key: 'basevar', params: [Type.Var] },
-  { key: 'category', params: [Type.Category] },
-  { key: 'huntmode', params: [Type.Hunt] },
-  { key: 'table', params: [Type.Dbtable] },
-  { key: 'check_category', params: [Type.Category] },
-  { key: 'check_inv', params: [Type.Inv, Type.Namedobj] },
-  { key: 'param', params: [Type.Param], varArgs: {startIndex: 1, symbolSource: ConfigVarArgSrc.FirstParam, symbolType: SymbolType.Param}},
-  { key: 'val', params: [], varArgs: {startIndex: 0, symbolSource: ConfigVarArgSrc.BlockName, symbolType: SymbolType.Enum}},
-  { key: 'data', params: [Type.Dbcolumn], varArgs: {startIndex: 1, symbolSource: ConfigVarArgSrc.FirstParam, symbolType: SymbolType.Dbcolumn}},
+  { key: 'walkanim', params: [SymbolType.Seq, SymbolType.Seq, SymbolType.Seq, SymbolType.Seq]},
+  { key: 'multivar', params: [SymbolType.GameVar] },
+  { key: 'multiloc', params: [SymbolType.Number, SymbolType.Loc] },
+  { key: 'multinpc', params: [SymbolType.Number, SymbolType.Npc] },
+  { key: 'basevar', params: [SymbolType.GameVar] },
+  { key: 'category', params: [SymbolType.Category] },
+  { key: 'huntmode', params: [SymbolType.Hunt] },
+  { key: 'table', params: [SymbolType.Dbtable] },
+  { key: 'check_category', params: [SymbolType.Category] },
+  { key: 'check_inv', params: [SymbolType.Inv, SymbolType.Obj] },
+  { key: 'param', params: [SymbolType.Param], varArgs: {symbolSource: ConfigVarArgSrc.FirstParam, symbolType: SymbolType.Param}},
+  { key: 'val', params: [], varArgs: {symbolSource: ConfigVarArgSrc.BlockName, symbolType: SymbolType.Enum}},
+  { key: 'data', params: [SymbolType.Dbcolumn], varArgs: {symbolSource: ConfigVarArgSrc.Column, symbolType: SymbolType.Dbcolumn}},
 ];
 
 /**
@@ -54,12 +55,12 @@ const configKeys: ConfigData[] = [
  * Need to specify file types here to limit excessive regex matching
  */
 const regexConfigKeys: RegexConfigData[] = [
-  { regex: /stock\d+/, params: [Type.Obj, Type.Int, Type.Int], fileTypes: [FileType.Inv] },
-  { regex: /count\d+/, params: [Type.Obj, Type.Int], fileTypes: [FileType.Obj] },
-  { regex: /frame\d+/, params: [Type.Frame], fileTypes: [FileType.Seq] },
-  { regex: /(model|head|womanwear|manwear|womanhead|manhead|activemodel)\d*/, params: [Type.Ob2], fileTypes: [FileType.Npc, FileType.Loc, FileType.Obj, FileType.Spotanim, FileType.If, FileType.Idk] },
-  { regex: /\w*anim\w*/, params: [Type.Seq], fileTypes: [FileType.Loc, FileType.Npc, FileType.If, FileType.Spotanim] },
-  { regex: /replaceheldleft|replaceheldright/, params: [Type.Obj], fileTypes: [FileType.Seq], ignoreValues: ["hide"] },
+  { regex: /stock\d+/, params: [SymbolType.Obj, SymbolType.Number, SymbolType.Number], fileTypes: [FileType.Inv] },
+  { regex: /count\d+/, params: [SymbolType.Obj, SymbolType.Number], fileTypes: [FileType.Obj] },
+  { regex: /frame\d+/, params: [SymbolType.Frame], fileTypes: [FileType.Seq] },
+  { regex: /(model|head|womanwear|manwear|womanhead|manhead|activemodel)\d*/, params: [SymbolType.Model], fileTypes: [FileType.Npc, FileType.Loc, FileType.Obj, FileType.Spotanim, FileType.If, FileType.Idk] },
+  { regex: /\w*anim\w*/, params: [SymbolType.Seq], fileTypes: [FileType.Loc, FileType.Npc, FileType.If, FileType.Spotanim] },
+  { regex: /replaceheldleft|replaceheldright/, params: [SymbolType.Obj], fileTypes: [FileType.Seq], ignoreValues: ["hide"] },
 ];
 
 /**

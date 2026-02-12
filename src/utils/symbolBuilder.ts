@@ -5,6 +5,7 @@ import { Type } from "../resource/enum/types.js";
 import { getSymbolConfig, typeToSymbolType } from "../resource/symbolConfig.js";
 import { FileInfo, RunescriptSymbol, Signature, SignatureParam, SignatureReturn, SymbolBuilderExtraItems } from "../types.js";
 import { encodeReference, resolveSymbolKey } from "./cacheUtils.js";
+import { warn } from "./logger.js";
 
 export function buildSymbolFromDec(name: string, symbolType: SymbolType, fileInfo: FileInfo, lineNum: number, startIndex: number, endIndex: number, extraItems?: SymbolBuilderExtraItems) {
   const symbol: RunescriptSymbol = {
@@ -16,8 +17,18 @@ export function buildSymbolFromDec(name: string, symbolType: SymbolType, fileInf
     references: {}
   }
 
-  if (getSymbolConfig(symbolType).cache) {
-    symbol.cacheKey = resolveSymbolKey(name, symbolType);
+  const symbolConfig = getSymbolConfig(symbolType);
+  if (symbolConfig.cache) {
+    symbol.cacheName = name;
+  }
+
+  if (symbolConfig.qualifiedName) {
+    if (name.indexOf(':') === -1) warn(`Expected qualified name for ${symbolType}, line=${lineNum}, start=${startIndex}, file=${fileInfo.fsPath}`);
+    else {
+      const split = name.split(':');
+      symbol.name = split[1];
+      symbol.qualifier = split[0];
+    }
   }
 
   if (extraItems) {
@@ -34,7 +45,6 @@ export function buildSymbolFromDec(name: string, symbolType: SymbolType, fileInf
     }
   }
 
-  const symbolConfig = getSymbolConfig(symbolType);
   if (symbolConfig.postProcessor !== undefined) {
     symbolConfig.postProcessor(symbol);
   }
@@ -50,7 +60,19 @@ export function buildSymbolFromRef(name: string, symbolType: SymbolType, fileTyp
     language: getDisplayLanguage(symbolType),
     references: {}
   }
+
   const symbolConfig = getSymbolConfig(symbolType);
+  if (symbolConfig.qualifiedName) {
+    if (name.indexOf(':') === -1) {
+      warn(`Expected qualified name for ${symbolType}, name=${name}`);
+    }
+    else {
+      const split = name.split(':');
+      symbol.name = split[1];
+      symbol.qualifier = split[0];
+    }
+  }
+
   if (symbolConfig.postProcessor !== undefined && (symbolConfig.referenceOnly || !symbolConfig.cache)) {
     symbolConfig.postProcessor(symbol);
   }

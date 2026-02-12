@@ -1,7 +1,8 @@
-import { DynamicConfigType, PostProcessor, RunescriptSymbol } from "../types.js";
+import { PostProcessor, RunescriptSymbol } from "../types.js";
 import { warn } from "../utils/logger.js";
+import { SymbolType } from "./enum/symbolTypes.js";
 import { Type } from "./enum/types.js";
-import { typeToSymbolType } from "./symbolConfig.js";
+import { getSymbolConfig, typeToSymbolType } from "./symbolConfig.js";
 
 /** 
  * Post processors execute after a symbol has been built and define extra work that needs to be done
@@ -24,10 +25,10 @@ export const enumPostProcessor: PostProcessor = function(symbol: RunescriptSymbo
     outputType.push(Type.Int);
   }
   const outputSymbolType = typeToSymbolType(outputType[0] as Type); 
-  symbol.dynamicConfigTypes = [
-    { symbolType: typeToSymbolType(inputType[0] as Type), valueIndex: 0 },
-    { symbolType: outputSymbolType, valueIndex: 1 }
-  ];
+  symbol.dynamicConfigTypes = new Map<number, SymbolType>([
+    [0, typeToSymbolType(inputType[0] as Type)],
+    [1, outputSymbolType]
+  ]);
   symbol.comparisonTypes = [outputSymbolType];
 };
 
@@ -42,27 +43,10 @@ export const gameVarPostProcessor: PostProcessor = function(symbol: RunescriptSy
 
 export const paramPostProcessor: PostProcessor = function(symbol: RunescriptSymbol): void {
   const symbolType = typeToSymbolType(((symbol.configLines?.get('type') ?? ['int'])[0] ?? 'int') as Type); // default value is int if not defined
-  symbol.dynamicConfigTypes = [
-    { symbolType: symbolType, valueIndex: 1 }
-  ];
+  symbol.dynamicConfigTypes = new Map<number, SymbolType>([
+    [1, symbolType]
+  ]);
   symbol.comparisonTypes = [symbolType];
-};
-
-export const configKeyPostProcessor: PostProcessor = function(symbol: RunescriptSymbol): void {
-  // const info = matchConfigKeyInfo(symbol.name, symbol.fileType);
-  // if (info) {
-  //   symbol.info = info.replace(/\$TYPE/g, symbol.fileType);
-  // } else {
-  //   symbol.hideDisplay = true;
-  // }
-  symbol.hideDisplay = true;
-};
-
-export const triggerPostProcessor: PostProcessor = function(symbol: RunescriptSymbol): void {
-  // if (identifier.extraData) {
-  //   const info = matchTriggerInfo(identifier.name, identifier.extraData.triggerName);
-  //   if (info) identifier.info = info;
-  // }
 };
 
 export const categoryPostProcessor: PostProcessor = function(symbol: RunescriptSymbol): void {
@@ -73,36 +57,27 @@ export const categoryPostProcessor: PostProcessor = function(symbol: RunescriptS
 };
 
 export const componentPostProcessor: PostProcessor = function(symbol: RunescriptSymbol): void {
-  const split = symbol.name.split(':');
-  symbol.info = `A component of the **${split[0]}** interface`;
-  symbol.name = split[1];
+  symbol.info = `A component of the **${symbol.qualifier}** interface`;
 };
 
 export const rowPostProcessor: PostProcessor = function(symbol: RunescriptSymbol): void {
-  const tableName = (symbol.configLines?.get('table') ?? [''])[0] ?? '';
-  if (tableName === '') {
-    warn(`Unable to resolve table name for row ${symbol.name} in ${symbol.declaration?.fsPath}`);
-  }
-  // Could save all the column names from this if wanted:
-  //const dataTypes = symbol.configLines?.get('data') ?? [];
-  symbol.info = `A row in the **${tableName}<** table`;
-  symbol.extraData = { table: tableName };
+  symbol.info = `A row int the **${symbol.qualifier}** table`;
 };
 
 export const columnPostProcessor: PostProcessor = function(symbol: RunescriptSymbol): void {
-  const split = symbol.name.split(':');
-  symbol.info = `A column of the **${split[0]}** table`;
-  symbol.name = split[1];
+  symbol.info = `A column of the **${symbol.qualifier}** table`;
 
   let valueIndex = 1;
   const columnTypes: string[] = symbol.extraData?.columnTypes ?? [];
-  const dynamicConfigTypes: DynamicConfigType[] = columnTypes.map(ct => ({ symbolType: typeToSymbolType(ct as Type), valueIndex: valueIndex++ }));
-
+  const dynamicConfigTypes = new Map<number, SymbolType>();
+  for (const ct of columnTypes) {
+    dynamicConfigTypes.set(valueIndex++, typeToSymbolType(ct as Type));
+  }
   symbol.dynamicConfigTypes = dynamicConfigTypes;
   symbol.block = `Column types: ${columnTypes.join(', ')}`;
   delete symbol.extraData;
 };
 
 export const fileNamePostProcessor: PostProcessor = function(symbol: RunescriptSymbol): void {
-  symbol.info = `Refers to the file **${symbol.name}.${symbol.fileType}**`;
+  symbol.info = `Refers to the file **${symbol.name}.${getSymbolConfig(symbol.symbolType).fileTypes![0] ?? 'rs2'}**`;
 };

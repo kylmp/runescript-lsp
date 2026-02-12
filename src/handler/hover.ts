@@ -50,11 +50,11 @@ function appendDevModeHoverText(markdown: string[], resolvedDataRange: DataRange
   const resolved = resolvedDataRange.data;
   markdown.push(`#### Debug ${resolved.symbol.name}`);
   const debugData = {
-    declaration: resolved.declaration,
-    parseData: { line: position.line, startIdx: resolvedDataRange.start, endIdx: resolvedDataRange.end },
-    context: resolved.context,
     symbolType: resolved.symbolConfig.symbolType,
+    declaration: resolved.declaration,
+    context: resolved.context,
     symbol: resolved.symbol,
+    parseData: { line: position.line, startIdx: resolvedDataRange.start, endIdx: resolvedDataRange.end },
   };
   addNewLine('```json', markdown);
   markdown.push(stringifyForDebug(debugData));

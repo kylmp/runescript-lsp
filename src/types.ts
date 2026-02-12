@@ -49,6 +49,7 @@ export interface SymbolConfig {
   hoverConfig?: HoverConfig;
   /** The comparison type that is *always* used for this matchType, if it has multiple possible comparison types such as constants, handle that in the symbol instead */
   comparisonType?: Type;
+  qualifiedName?: boolean;
   /** Function that is executed after symbols of this type have been created (allows for more dynamic runtime info with full context to be tied to an symbol) */
   postProcessor?: PostProcessor;
 }
@@ -77,13 +78,11 @@ export interface ConfigData {
   /** The config key to look for, can be a direct string or a regex to match multiple keys */
   key?: string;
   /** The types of the params for this config key, in order */
-  params: Type[];
+  params: SymbolType[];
   /** Words to be ignored as params if they belong to this config key */
   ignoreValues?: string[];
   /** If this config key has var args, this data is used by the matcher to figure out the arg match types */
   varArgs?: { 
-    /** The param index that the varags start on */
-    startIndex: number;
     /** The source of the symbol where the vararg param types are defined */
     symbolSource: ConfigVarArgSrc; 
     /** The symbol type the symbol where the varag param types are defined */
@@ -119,11 +118,6 @@ export interface Signature {
   getReturnsDisplayText: () => string;
 }
 
-export interface DynamicConfigType { 
-  symbolType: SymbolType, 
-  valueIndex: number 
-}
-
 /**
  * The definition of a runescript symbol
  * This stores all of the data necessary for the core functions of the extension 
@@ -137,7 +131,7 @@ export interface RunescriptSymbol {
   /** This is the pack id (such as Obj ID 1234), if it has one */
   id?: string;
   /** The cache key for this symbol */
-  cacheKey?: string;
+  cacheName?: string;
   /** The location of the declaration/definition of the symbol, if it has one */
   declaration?: { fsPath: string; ref: string };
   /** The locations (encoded as string) of the references of the symbol */
@@ -151,7 +145,7 @@ export interface RunescriptSymbol {
   /** For referencing and displaying on hover the symbol params and return types. */
   signature?: Signature;
   /** For holding type data about dynamic configs */
-  dynamicConfigTypes?: DynamicConfigType[];
+  dynamicConfigTypes?: Map<number, SymbolType>;
   /** Lines from the config that are saved with the symbol */
   configLines?: Map<string, string[]>;
   /** For displaying the symbols code block on hover */
@@ -164,6 +158,8 @@ export interface RunescriptSymbol {
   hideDisplay?: boolean;
   /** The type(s) this symbol resolves to for comparison operations */
   comparisonTypes?: SymbolType[];
+  /** Qualifier name, if it has one */
+  qualifier?: string;
 }
 
 export interface ParsedWord {

@@ -43,9 +43,9 @@ function resolveDefinitions(parseResult: ParseResult, cache: WorkspaceCache): Da
     // Resolve param (local vars)
     if (fileCache) {
       for (const param of (script.parsedScript.parameters ?? [])) {
-        const paramSymbol = buildSymbolFromDec(param.name.text, SymbolType.LocalVar, parseResult.fileInfo, param.source.line, param.source.column, param.source.endColumn, {extraData: {type: param.typeToken.text}});
+        const paramSymbol = buildSymbolFromDec(param.name.text, SymbolType.LocalVar, parseResult.fileInfo, param.source.line, param.name.source.column, param.name.source.endColumn, {extraData: {type: param.typeToken.text}});
         paramSymbol.block = `${param.typeToken.text} ${param.name.text} (parameter)`;
-        fileCache.addLocalVariable(paramSymbol, param.source.line, param.source.column, param.source.endColumn);
+        fileCache.addLocalVariable(paramSymbol, param.source.line, param.name.source.column, param.name.source.endColumn);
       }
     }
   }
