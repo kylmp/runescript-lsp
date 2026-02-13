@@ -9,6 +9,13 @@ export interface Settings {
   enableDevMode: boolean;
 }
 
+export const SETTINGS_SECTION = "runescript";
+export const SETTINGS_KEYS = {
+  ENABLE_DIAGNOSTICS: "runescript.enableDiagnostics",
+  ENABLE_HOVER: "runescript.enableHover",
+  ENABLE_DEV_MODE: "runescript.enableDevMode"
+} as const;
+
 const defaultSettings: Settings = {
   enableDiagnostics: true,
   enableHover: true,
@@ -38,7 +45,7 @@ export function isDevMode(): boolean {
 }
 
 export async function initSettings(connection: Connection): Promise<void> {
-  const result = await connection.workspace.getConfiguration({ section: "runescript" });
+  const result = await connection.workspace.getConfiguration({ section: SETTINGS_SECTION });
   if (result && typeof result === "object") {
     const partial = result as Record<string, unknown>;
     currentSettings = {

@@ -1,19 +1,12 @@
 import { Connection, RequestType } from "vscode-languageserver/node.js";
-import { DevModeHighlightsResponse, FileInfo } from "../types.js";
+import { DevModeHighlightsResponse, FileInfo, GetDecorationsParams, HighlightKind } from "../types.js";
 import { getWorkspaceCache } from "../cache/cacheManager.js";
 import { WorkspaceCache } from "../cache/WorkspaceCache.js";
 import { isDevMode } from "./settingsUtils.js";
 import { uriToFileInfo } from "./fileUtils.js";
 import { getWorkspaceFolders } from "./workspaceUtils.js";
 
-type GetDecorationsParams = { uri: string };
-
 let connection: Connection | undefined;
-
-export enum HighlightKind {
-  Symbol = 'symbol',
-  Unknown = 'unknown'
-}
 
 export function initHighlights(conn: Connection): void {
   connection = conn;

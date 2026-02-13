@@ -4,14 +4,14 @@ import { mapUri } from "../utils/fileUtils.js";
 import { findWorkspaceFolder, getWorkspaceFolders } from "../utils/workspaceUtils.js";
 
 export const COMMANDS = {
-  rescanWorkspace: "runescript.rescanWorkspace"
+  RESCAN_WORKSPACE: "runescript.rescanWorkspace"
 } as const;
 
-export const COMMAND_IDS = [COMMANDS.rescanWorkspace] as const;
+export const COMMAND_IDS = Object.values(COMMANDS);
 
 export function registerCommandHandlers(connection: Connection): void {
   connection.onExecuteCommand(async (params) => {
-    if (params.command === COMMANDS.rescanWorkspace) {
+    if (params.command === COMMANDS.RESCAN_WORKSPACE) {
       const workspaceArg = params.arguments?.[0];
       if (typeof workspaceArg === "string") {
         const fsPath = workspaceArg.startsWith("file:") ? mapUri(workspaceArg) : workspaceArg;

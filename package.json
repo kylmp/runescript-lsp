@@ -1,7 +1,6 @@
 {
   "name": "runescript-lsp",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.0.1",
   "type": "module",
   "description": "Language Server Protocol implementation for Runescript",
   "main": "dist/server.js",
@@ -11,7 +10,28 @@
     "build": "npm run clean && tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
     "start": "node dist/server.js",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": "./dist/server.js",
+    "./commands": {
+      "types": "./dist/public/commands.d.ts",
+      "default": "./dist/public/commands.js"
+    },
+    "./settings": {
+      "types": "./dist/public/settings.d.ts",
+      "default": "./dist/public/settings.js"
+    },
+    "./types": {
+      "types": "./dist/public/types.d.ts",
+      "default": "./dist/public/types.js"
+    }
   },
   "dependencies": {
     "runescript-parser": "^0.1.5",

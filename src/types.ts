@@ -6,7 +6,6 @@ import type { Language } from "./resource/enum/languages.js";
 import type { SemanticTokenType } from "./resource/enum/semanticTokens.js";
 import type { SymbolType } from "./resource/enum/symbolTypes.js";
 import type { Type } from "./resource/enum/types.js";
-import { HighlightKind } from "./utils/highlightUtils.js";
 
 export type ConfigKey = string;
 export type SymbolKey = string;
@@ -215,3 +214,12 @@ export type DevModeHighlightsResponse = {
   uri: string;
   ranges: {kind: HighlightKind, range: Range}[];
 };
+
+export type GetDecorationsParams = {
+  uri: string;
+};
+
+export enum HighlightKind {
+  Symbol = 'symbol',
+  Unknown = 'unknown'
+}

@@ -6,7 +6,7 @@ import { addReference, buildSymbolFromDec } from "../utils/symbolBuilder.js";
 import { SymbolType } from "../resource/enum/symbolTypes.js";
 import { warn } from "../utils/logger.js";
 import { getSymbolConfig } from "../resource/symbolConfig.js";
-import { HighlightKind } from "../utils/highlightUtils.js";
+import { HighlightKind } from "../types.js";
 
 export class FileCache {
   // Cache of all symbols in the file, per line
