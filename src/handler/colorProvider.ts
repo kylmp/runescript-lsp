@@ -2,6 +2,7 @@ import type { Connection, ColorInformation, ColorPresentation, DocumentColorPara
 import { Color, Range, TextEdit } from "vscode-languageserver-types";
 import { getDocuments } from "../utils/documentUtils.js";
 import { COLOR24_REGEX, RECOLOR_REGEX } from "../resource/enum/regex.js";
+import { getLanguage } from "../utils/handlerUtils.js";
 
 export function registerColorProviderHandler(connection: Connection): void {
   connection.onDocumentColor((params: DocumentColorParams): ColorInformation[] => {
@@ -25,10 +26,6 @@ export function registerColorProviderHandler(connection: Connection): void {
     }
     return [];
   });
-}
-
-function getLanguage(params: any): string | undefined {
-  return getDocuments().get(params.textDocument.uri)?.languageId;
 }
 
 function color24Provider(params: DocumentColorParams): ColorInformation[] {

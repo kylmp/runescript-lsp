@@ -1,10 +1,13 @@
+import { config } from "process";
 import { addWorkspaceCache, clearFile, clearWorkspaceCache, getWorkspaceCache } from "./cache/cacheManager.js";
+import { WorkspaceCache } from "./cache/WorkspaceCache.js";
 import { parseFile, ParseResult, ParserKind } from "./parser/parser.js";
 import { ResolutionMode, resolveParsedResult } from "./resolver/resolver.js";
 import type { FileInfo } from "./types.js";
+import { getConnection } from "./utils/connectionUtils.js";
 import { sendAllHighlights, sendFileHighlights } from "./utils/highlightUtils.js";
 import { formatMs, log, warn } from "./utils/logger.js";
-import { startProgress } from "./utils/progressUtils.js";
+import { ProgressHandle, startProgress } from "./utils/progressUtils.js";
 import { getMonitoredWorkspaceFiles, getWorkspaceFolders } from "./utils/workspaceUtils.js";
 
 export async function rebuildAllWorkspaces() {
@@ -34,7 +37,7 @@ export async function rebuildWorkspace(workspace: string) {
   let done = 0;
   const total = files.length;
   const parsingStartPct = 10;
-  const parsingEndPct = 70;
+  const parsingEndPct = 80;
   start = performance.now();
   progress.report(parsingStartPct, 'Parsing files...');
   const parsedFiles: ParseResult[] = (await Promise.all(
@@ -72,24 +75,32 @@ export async function rebuildWorkspace(workspace: string) {
   // Resolve and cache symbols
   start = performance.now();
   let resolved = 0;
-  progress.report(parsingEndPct, 'Resolving symbols...');
-  constants.forEach(parsedResult => resolved += resolveParsedResult(parsedResult, cache, ResolutionMode.All));
-  gameVars.forEach(parsedResult => resolved += resolveParsedResult(parsedResult, cache, ResolutionMode.All));
-  tables.forEach(parsedResult => resolved += resolveParsedResult(parsedResult, cache, ResolutionMode.All));
-  configs.forEach(parsedResult => resolved += resolveParsedResult(parsedResult, cache, ResolutionMode.Definitions));
-  scripts.forEach(parsedResult => resolved += resolveParsedResult(parsedResult, cache, ResolutionMode.Definitions));
-  configs.forEach(parsedResult => resolved += resolveParsedResult(parsedResult, cache, ResolutionMode.References));
-  scripts.forEach(parsedResult => resolved += resolveParsedResult(parsedResult, cache, ResolutionMode.References));
-  packs.forEach(parsedResult => resolved += resolveParsedResult(parsedResult, cache, ResolutionMode.All));
+  const resolvingStep = (100 - parsingEndPct) / 8;
+  resolveFiles(constants, ResolutionMode.All, cache, progress, 82, "Resolving constants");
+  resolveFiles(gameVars, ResolutionMode.All, cache, progress, 84, "Resolving game vars");
+  resolveFiles(tables, ResolutionMode.All, cache, progress, 86, "Resolving dbtables");
+  resolveFiles(configs, ResolutionMode.Definitions, cache, progress, 88, "Resolving config definitions");
+  resolveFiles(scripts, ResolutionMode.Definitions, cache, progress, 90, "Resolving script definitions");
+  resolveFiles(configs, ResolutionMode.References, cache, progress, 92, "Resolving config references");
+  resolveFiles(scripts, ResolutionMode.References, cache, progress, 94, "Resolving script references");
+  resolveFiles(packs, ResolutionMode.All, cache, progress, 96, "Resolving pack files");
   log(`Rescan: Resolved ${resolved} symbols in ${formatMs(performance.now() - start)}`);
 
   // Report diagnostics?
   sendAllHighlights(cache);
+  getConnection()?.languages.semanticTokens.refresh();
 
   log(`Finished rescan of workspace [${workspace}] in ${formatMs(performance.now() - startRescan)}`);
-  progress.report(100, "Indexing complete");
+  progress.report(100, "Finalizing indexes");
   await new Promise((r) => setTimeout(r, 1000));
   progress.done();
+}
+
+function resolveFiles(parseResults: ParseResult[], resolutionMode: ResolutionMode, cache: WorkspaceCache, progress: ProgressHandle, percent: number, progressMsg: string): number {
+  let symbolCount = 0;
+  parseResults.forEach(parsedResult => symbolCount = resolveParsedResult(parsedResult, cache, resolutionMode));
+  progress.report(percent, progressMsg);
+  return symbolCount;
 }
 
 export async function rebuildFile(fileInfo: FileInfo, text?: string) {
@@ -107,6 +118,7 @@ export async function rebuildFile(fileInfo: FileInfo, text?: string) {
   // resolve file 
   const symbolCount = resolveParsedResult(parsedFile, cache, ResolutionMode.All);
   sendFileHighlights(fileInfo);
+  getConnection()?.languages.semanticTokens.refresh();
 
   // diagnostics?
   log(`Rebuilt file [${fileInfo.name}.${fileInfo.type}] and resolved ${symbolCount} symbols in ${formatMs(performance.now() - start)}`);

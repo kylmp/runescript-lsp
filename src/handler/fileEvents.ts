@@ -1,11 +1,15 @@
 import type { Connection, TextDocuments } from "vscode-languageserver/node.js";
 import type { TextDocument } from "vscode-languageserver-textdocument";
 import { FileChangeType, FileEvent, TextDocumentChangeEvent } from "vscode-languageserver/node.js";
-import { isOpenDocument } from "../utils/documentUtils.js";
+import { getDocuments, isOpenDocument } from "../utils/documentUtils.js";
 import { uriToFileInfo } from "../utils/fileUtils.js";
 import { logFileEvent } from "../utils/logger.js";
 import { disposeFile, rebuildFile } from "../manager.js";
 import { getIsInitializing } from "../utils/initUtils.js";
+
+const lastHandledVersions = new Map<string, number>();
+const pendingChangeTimers = new Map<string, NodeJS.Timeout>();
+const CHANGE_DEDUP_MS = 200;
 
 export function registerFileEventHandlers(documents: TextDocuments<TextDocument>, connection: Connection): void {
   documents.onDidOpen(handleDocumentOpened);
@@ -48,10 +52,27 @@ function handleDocumentSaved(event: TextDocumentChangeEvent<TextDocument>) {
 
 function handleDocumentChanged(event: TextDocumentChangeEvent<TextDocument>) {
   if (getIsInitializing()) return;
-  const fileInfo = uriToFileInfo(event.document.uri);
-  if (!fileInfo.isMonitored) return;
-  logFileEvent('active file changed', fileInfo);
-  rebuildFile(fileInfo, event.document.getText());
+  const lastVersion = lastHandledVersions.get(event.document.uri);
+  if (lastVersion === event.document.version) return;
+  lastHandledVersions.set(event.document.uri, event.document.version);
+
+  const existing = pendingChangeTimers.get(event.document.uri);
+  if (existing) clearTimeout(existing);
+
+  pendingChangeTimers.set(
+    event.document.uri,
+    setTimeout(() => {
+      pendingChangeTimers.delete(event.document.uri);
+      if (getIsInitializing()) return;
+
+      const fileInfo = uriToFileInfo(event.document.uri);
+      if (!fileInfo.isMonitored) return;
+      const latestDoc = getDocuments().get(event.document.uri);
+      if (!latestDoc) return;
+      logFileEvent('active file changed', fileInfo);
+      rebuildFile(fileInfo, latestDoc.getText());
+    }, CHANGE_DEDUP_MS)
+  );
 }
 
 function handleFileChanged(event: FileEvent) {
