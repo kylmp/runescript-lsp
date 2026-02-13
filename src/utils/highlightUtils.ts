@@ -10,6 +10,11 @@ type GetDecorationsParams = { uri: string };
 
 let connection: Connection | undefined;
 
+export enum HighlightKind {
+  Symbol = 'symbol',
+  Unknown = 'unknown'
+}
+
 export function initHighlights(conn: Connection): void {
   connection = conn;
   connection.onRequest(new RequestType<GetDecorationsParams, DevModeHighlightsResponse, void>("runescript/getDecorations"), async ({ uri }) => {

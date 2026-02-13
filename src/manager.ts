@@ -2,7 +2,7 @@ import { addWorkspaceCache, clearFile, clearWorkspaceCache, getWorkspaceCache } 
 import { parseFile, ParseResult, ParserKind } from "./parser/parser.js";
 import { ResolutionMode, resolveParsedResult } from "./resolver/resolver.js";
 import type { FileInfo } from "./types.js";
-import { sendAllHighlights } from "./utils/highlightUtils.js";
+import { sendAllHighlights, sendFileHighlights } from "./utils/highlightUtils.js";
 import { formatMs, log, warn } from "./utils/logger.js";
 import { startProgress } from "./utils/progressUtils.js";
 import { getMonitoredWorkspaceFiles, getWorkspaceFolders } from "./utils/workspaceUtils.js";
@@ -106,6 +106,7 @@ export async function rebuildFile(fileInfo: FileInfo, text?: string) {
 
   // resolve file 
   const symbolCount = resolveParsedResult(parsedFile, cache, ResolutionMode.All);
+  sendFileHighlights(fileInfo);
 
   // diagnostics?
   log(`Rebuilt file [${fileInfo.name}.${fileInfo.type}] and resolved ${symbolCount} symbols in ${formatMs(performance.now() - start)}`);

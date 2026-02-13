@@ -4,7 +4,7 @@ import { SymbolType } from "../resource/enum/symbolTypes.js";
 import { Type } from "../resource/enum/types.js";
 import { getSymbolConfig, typeToSymbolType } from "../resource/symbolConfig.js";
 import { FileInfo, RunescriptSymbol, Signature, SignatureParam, SignatureReturn, SymbolBuilderExtraItems } from "../types.js";
-import { encodeReference, resolveSymbolKey } from "./cacheUtils.js";
+import { encodeReference } from "./cacheUtils.js";
 import { warn } from "./logger.js";
 
 export function buildSymbolFromDec(name: string, symbolType: SymbolType, fileInfo: FileInfo, lineNum: number, startIndex: number, endIndex: number, extraItems?: SymbolBuilderExtraItems) {
@@ -52,7 +52,7 @@ export function buildSymbolFromDec(name: string, symbolType: SymbolType, fileInf
   return symbol;
 }
 
-export function buildSymbolFromRef(name: string, symbolType: SymbolType, fileType: string): RunescriptSymbol {
+export function buildSymbolFromRef(name: string, symbolType: SymbolType, fileType: string, extraData?: Record<string, any>): RunescriptSymbol {
   const symbol: RunescriptSymbol = {
     name,
     symbolType,
@@ -72,6 +72,8 @@ export function buildSymbolFromRef(name: string, symbolType: SymbolType, fileTyp
       symbol.qualifier = split[0];
     }
   }
+
+  if (extraData) symbol.extraData = extraData;
 
   if (symbolConfig.postProcessor !== undefined && (symbolConfig.referenceOnly || !symbolConfig.cache)) {
     symbolConfig.postProcessor(symbol);

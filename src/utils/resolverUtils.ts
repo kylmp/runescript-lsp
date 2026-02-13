@@ -45,12 +45,12 @@ export function resolveAtHandlerPosition(position: Position, fileInfo: FileInfo)
   return resolvedDataRange;
 }
 
-export function resolveRefDataRange(symbolType: SymbolType, start: number, end: number, line: number, name: string, fileType: string, context?: Record<string, any>) {
+export function resolveRefDataRange(symbolType: SymbolType, start: number, end: number, line: number, name: string, fileType: string, context?: Record<string, any>, extraData?: Record<string, any>) {
   const symbolConfig = getSymbolConfig(symbolType);
   if (symbolConfig.cache) {
-    return dataRangeFromRef(start, end, line, symbolConfig, name, context);
+    return dataRangeFromRef(start, end, line, symbolConfig, name, context, extraData);
   } else {
-    return dataRangeFromSymbol(start, end, line, buildSymbolFromRef(name, symbolType, fileType), false, context);
+    return dataRangeFromSymbol(start, end, line, buildSymbolFromRef(name, symbolType, fileType, extraData), false, context);
   }
 }
 
@@ -59,7 +59,7 @@ export function resolveDefDataRange(start: number, end: number, line: number, sy
 }
 
 
-function dataRangeFromRef(start: number, end: number, line: number, symbolConfig: SymbolConfig, name: string, context?: Record<string, any>): DataRange<ResolvedData> {
+function dataRangeFromRef(start: number, end: number, line: number, symbolConfig: SymbolConfig, name: string, context?: Record<string, any>, extraData?: Record<string, any>): DataRange<ResolvedData> {
   return { 
     start,
     end,
@@ -69,7 +69,8 @@ function dataRangeFromRef(start: number, end: number, line: number, symbolConfig
       line,
       name,
       id: context?.id,
-      context
+      context,
+      extraData
     }
   };
 }
@@ -87,3 +88,14 @@ function dataRangeFromSymbol(start: number, end: number, line: number, symbol: R
     }
   };
 }
+
+export function toCoord(n: number) {
+  const level = n >>> 28;
+  const x = (n >>> 14) & 0x3fff;
+  const y = n & 0x3fff;
+  const chunkX = x >>> 6;
+  const chunkY = y >>> 6;
+  const localX = x & 0x3f;
+  const localY = y & 0x3f;
+  return `${level}_${chunkX}_${chunkY}_${localX}_${localY}`;
+};

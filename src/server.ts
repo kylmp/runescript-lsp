@@ -6,6 +6,7 @@ import { registerFileEventHandlers } from "./handler/fileEvents.js";
 import { registerGitEventHandlers } from "./handler/gitEvents.js";
 import { registerWorkspaceEventHandlers } from "./handler/workspaceEvents.js";
 import { registerReferencesHandler } from "./handler/references.js";
+import { getSemanticTokensLegend, registerSemanticTokensHandler } from "./handler/semanticTokens.js";
 import { setDocuments } from "./utils/documentUtils.js";
 import { registerSettingsChangeHandlers } from "./handler/settingsEvents.js";
 import { setWorkspaceFolders } from "./utils/workspaceUtils.js";
@@ -54,6 +55,10 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       definitionProvider: true,
       referencesProvider: true,
       hoverProvider: true,
+      semanticTokensProvider: {
+        legend: getSemanticTokensLegend(),
+        full: true
+      },
       executeCommandProvider: {
         commands: [...COMMAND_IDS]
       }
@@ -94,6 +99,7 @@ registerDefinitionHandler(connection);
 registerReferencesHandler(connection);
 registerCommandHandlers(connection);
 registerHoverHandler(connection);
+registerSemanticTokensHandler(connection);
 
 // Listeners
 documents.listen(connection);

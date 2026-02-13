@@ -104,7 +104,8 @@ function resolveSymbol(resolved: DataRange<ResolvedData>, parseResult: ParseResu
         resolved.data.line,
         resolved.start, 
         resolved.end,
-        resolved.data.id
+        resolved.data.id,
+        resolved.data.extraData
       );
     } else {
       return resolved.data.symbol!;

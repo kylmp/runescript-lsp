@@ -20,7 +20,7 @@ export const scriptFileParser = (request: ParseRequest): ParseResult | undefined
 
 function parseScriptFile(lines: string[]): RunescriptFile | undefined {
   const scripts: RunescriptScript[] = [];
-  const parserResult = ScriptParser.parseFileTextLines(lines) ?? undefined;
+  const parserResult = ScriptParser.parseFileTextLines(lines, { tolerant: true }) ?? undefined;
   if (!parserResult) return undefined;
   for (const parsedScript of parserResult.children) {
     if (isScript(parsedScript)) {

@@ -6,6 +6,7 @@ import { addReference, buildSymbolFromDec } from "../utils/symbolBuilder.js";
 import { SymbolType } from "../resource/enum/symbolTypes.js";
 import { warn } from "../utils/logger.js";
 import { getSymbolConfig } from "../resource/symbolConfig.js";
+import { HighlightKind } from "../utils/highlightUtils.js";
 
 export class FileCache {
   // Cache of all symbols in the file, per line
@@ -17,7 +18,7 @@ export class FileCache {
   // Tracks the line number range of scripts in the file
   private readonly scriptRanges: DataRange<string>[];
 
-  private readonly symbolRanges: Range[];
+  private readonly symbolRanges: {kind: HighlightKind, range: Range}[];
 
   private readonly fileInfo: FileInfo;
 
@@ -30,9 +31,12 @@ export class FileCache {
   }
 
   addSymbol(lineNum: number, symbol: DataRange<ResolvedSymbol>): void {
-    this.symbolRanges.push({ 
-      start: {line: lineNum, character: symbol.start}, 
-      end: {line: lineNum, character: symbol.end}
+    this.symbolRanges.push({
+      kind: symbol.data.symbol.symbolType === SymbolType.Unknown ? HighlightKind.Unknown : HighlightKind.Symbol,
+      range: { 
+        start: {line: lineNum, character: symbol.start}, 
+        end: {line: lineNum, character: symbol.end}
+      }
     });
 
     let symbols = this.fileSymbols.get(lineNum);
@@ -64,7 +68,7 @@ export class FileCache {
     return this.fileSymbols;
   }
 
-  getSymbolRanges(): Range[] {
+  getSymbolRanges(): {kind: HighlightKind, range: Range}[] {
     return this.symbolRanges;
   }
 

@@ -6,6 +6,7 @@ import type { Language } from "./resource/enum/languages.js";
 import type { SemanticTokenType } from "./resource/enum/semanticTokens.js";
 import type { SymbolType } from "./resource/enum/symbolTypes.js";
 import type { Type } from "./resource/enum/types.js";
+import { HighlightKind } from "./utils/highlightUtils.js";
 
 export type ConfigKey = string;
 export type SymbolKey = string;
@@ -198,6 +199,7 @@ export interface ResolvedData {
   name?: string;
   id?: string;
   context?: Record<string, any>;
+  extraData?: Record<string, any>;
 }
 
 /**
@@ -211,5 +213,5 @@ export interface DataRange<T> {
 
 export type DevModeHighlightsResponse = {
   uri: string;
-  ranges: Range[];
+  ranges: {kind: HighlightKind, range: Range}[];
 };

@@ -105,14 +105,14 @@ export class SymbolCache {
    * @param startIndex the index within the line where the reference word starts
    * @param endIndex the index within the line where the reference word ends
    */
-  putReference(name: string, symbolType: SymbolType, fsPath: string, fileType: string, lineNum: number, startIndex: number, endIndex: number, id?: string): RunescriptSymbol {
+  putReference(name: string, symbolType: SymbolType, fsPath: string, fileType: string, lineNum: number, startIndex: number, endIndex: number, id?: string, extraData?: Record<string, any>): RunescriptSymbol {
     // Make sure cache keys resolve correctly
     const key = resolveSymbolKey(name, symbolType);
     const fileKey = fsPath as FileKey;
 
     // If the symbol doesn't yet exist in the cache, build it
     if (!this.symbolCache.has(key)) {
-      this.symbolCache.set(key, buildSymbolFromRef(name, symbolType, fileType));
+      this.symbolCache.set(key, buildSymbolFromRef(name, symbolType, fileType, extraData));
     }
 
     // Get the current references for this identifier in the current file (if any) and add this new reference

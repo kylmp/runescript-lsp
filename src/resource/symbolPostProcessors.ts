@@ -51,8 +51,8 @@ export const paramPostProcessor: PostProcessor = function(symbol: RunescriptSymb
 
 export const categoryPostProcessor: PostProcessor = function(symbol: RunescriptSymbol): void {
   const extraData = symbol.extraData;
-  if (extraData && extraData.matchId && extraData.categoryName) {
-    symbol.value = `This script applies to all **${extraData.matchId}** with \`category=${extraData.categoryName}\``;
+  if (extraData && extraData.symbolType && extraData.categoryName) {
+    symbol.value = `This script applies to all **${extraData.symbolType}** with \`category=${extraData.categoryName}\``;
   }
 };
 
