@@ -2,11 +2,12 @@ import { Range } from "vscode-languageserver";
 import { DataRange, FileInfo, ResolvedSymbol, RunescriptSymbol } from "../types.js";
 import { findMatchInRange, resolveDefDataRange } from "../utils/resolverUtils.js";
 import { Position } from "vscode-languageserver-textdocument";
-import { addReference, buildSymbolFromDec } from "../utils/symbolBuilder.js";
+import { addReference, buildSymbolFromDec, buildSymbolFromRef } from "../utils/symbolBuilder.js";
 import { SymbolType } from "../resource/enum/symbolTypes.js";
 import { warn } from "../utils/logger.js";
 import { getSymbolConfig } from "../resource/symbolConfig.js";
 import { HighlightKind } from "../types.js";
+import { decodeReference, decodeToLocation } from "../utils/cacheUtils.js";
 
 export class FileCache {
   // Cache of all symbols in the file, per line
@@ -61,7 +62,7 @@ export class FileCache {
   }
 
   getAtPosition(position: Position): DataRange<ResolvedSymbol> | undefined {
-    return findMatchInRange(position.character, this.fileSymbols.get(position.line))
+    return findMatchInRange(position.character - 1, this.fileSymbols.get(position.line))
   }
 
   getSymbols(): Map<number, DataRange<ResolvedSymbol>[]> {
@@ -73,7 +74,7 @@ export class FileCache {
   }
 
   addLocalVariable(localVar: RunescriptSymbol, lineNum: number, start: number, end: number) {
-    const scriptName = this.getScriptName(lineNum);
+    const scriptName = this.getScriptRange(lineNum);
     if (!scriptName) return undefined;
     const scriptLocalVariables = this.localVarCache.get(scriptName.data) ?? new Map<string, RunescriptSymbol>();
     scriptLocalVariables.set(localVar.name, localVar);
@@ -83,14 +84,10 @@ export class FileCache {
   }
 
   addLocalVariableReference(name: string, lineNum: number, start: number, end: number) {
-    const scriptName = this.getScriptName(lineNum);
+    const scriptName = this.getScriptRange(lineNum);
     if (!scriptName) return undefined;
     const scriptLocalVariables = this.localVarCache.get(scriptName.data) ?? new Map<string, RunescriptSymbol>();
-    const localVarSymbol = scriptLocalVariables.get(name);
-    if (!localVarSymbol) {
-      warn(`Tried to add local var reference but the definition doesn't exist. localVar=${name}, file=${this.fileInfo.fsPath}`);
-      return;
-    }
+    const localVarSymbol = scriptLocalVariables.get(name) ?? buildSymbolFromRef(name, SymbolType.LocalVar, 'rs2');
     const refs = addReference(localVarSymbol, this.fileInfo.fsPath, lineNum, start, end);
     localVarSymbol.references[this.fileInfo.fsPath] = refs;
     const resolvedLocalVar = { start, end, data: { symbol: localVarSymbol, symbolConfig: getSymbolConfig(SymbolType.LocalVar), declaration: false}};
@@ -98,18 +95,35 @@ export class FileCache {
   }
 
   getLocalVariable(lineNum: number, name: string): RunescriptSymbol | undefined {
-    const scriptName = this.getScriptName(lineNum);
+    const scriptName = this.getScriptRange(lineNum);
     if (!scriptName) return undefined;
     const scriptLocalVariables = this.localVarCache.get(scriptName.data);
     if (!scriptLocalVariables) return undefined;
     return scriptLocalVariables.get(name);
   }
 
+  getLocalVariableNames(lineNum: number): Set<{ name: string, desc: string }> {
+    const namesInScriptBlock = new Set<{ name: string, desc: string }>();
+    const scriptName = this.getScriptRange(lineNum);
+    if (!scriptName) return namesInScriptBlock;
+    const localVarsInScope = this.localVarCache.get(scriptName.data);
+    if (!localVarsInScope) return namesInScriptBlock;
+    for (const localVar of localVarsInScope.values()) {
+      if (!localVar.declaration) continue;
+      const declarationLocation = decodeToLocation(localVar.declaration.fsPath, localVar.declaration.ref); 
+      if (!declarationLocation || declarationLocation.range.start.line > lineNum) continue;
+      const ref = decodeReference(localVar.declaration.ref);
+      const desc = (ref?.line === scriptName.start) ? `parameter (${localVar.extraData?.type})` : `local variable (${localVar.extraData?.type})`;
+      namesInScriptBlock.add({ name: localVar.name, desc: desc });
+    }
+    return namesInScriptBlock;
+  }
+
   addScriptRange(startLine: number, endLine: number, blockName: string): void {
     this.scriptRanges.push({ start: startLine, end: endLine, data: blockName });
   }
 
-  getScriptName(lineNum: number) {
+  getScriptRange(lineNum: number) {
     return findMatchInRange(lineNum, this.scriptRanges);
   }
 

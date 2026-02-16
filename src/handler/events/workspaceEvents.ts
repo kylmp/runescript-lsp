@@ -1,10 +1,10 @@
 import type { Connection, WorkspaceFoldersChangeEvent } from "vscode-languageserver/node.js";
-import { log, logWorkspaceEvent } from "../utils/logger.js";
-import { mapUri } from "../utils/fileUtils.js";
+import { log, logWorkspaceEvent } from "../../utils/logger.js";
+import { mapUri } from "../../utils/fileUtils.js";
 import { URI } from "vscode-uri";
-import { disposeWorkspace, rebuildWorkspace } from "../manager.js";
-import { getIsInitializing } from "../utils/initUtils.js";
-import { getWorkspaceFolders, setWorkspaceFolders } from "../utils/workspaceUtils.js";
+import { disposeWorkspace, rebuildWorkspace } from "../../manager.js";
+import { getIsInitializing } from "../../utils/initUtils.js";
+import { getWorkspaceFolders, setWorkspaceFolders } from "../../utils/workspaceUtils.js";
 
 export function registerWorkspaceEventHandlers(connection: Connection): void {
   connection.workspace.onDidChangeWorkspaceFolders((event: WorkspaceFoldersChangeEvent) => {

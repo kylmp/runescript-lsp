@@ -14,6 +14,10 @@ export function getDocuments(): TextDocuments<TextDocument> {
   return documents;
 }
 
+export function getDocument(uri: string): TextDocument | undefined {
+  return getDocuments().get(uri);
+}
+
 export function isOpenDocument(uri: string): boolean {
   return getDocuments().get(uri) !== undefined;
 }

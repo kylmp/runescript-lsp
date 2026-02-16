@@ -8,13 +8,14 @@ import { warn } from "../utils/logger.js";
 import { buildSymbolFromRef, buildSymbolFromDec, buildModifiedWordContext } from "../utils/symbolBuilder.js";
 import { SymbolType } from "../resource/enum/symbolTypes.js";
 import { resolveRefDataRange, resolveDefDataRange, toCoord } from "../utils/resolverUtils.js";
-import { AstVisitor, CalcExpression, ConditionExpression, Expression, IfStatement, Node, NodeKind, PTagStringPart } from "runescript-parser";
+import { AssignmentStatement, AstVisitor, CalcExpression, ConditionExpression, Expression, findSmallestNodeAtPosition, Node, NodeKind, PTagStringPart } from "runescript-parser";
 import { CommandCallExpression, Identifier } from "runescript-parser";
-import { CallExpression, DeclarationStatement, JumpCallExpression, Literal, ProcCallExpression, ReturnStatement, Script, StringPart, SwitchStatement, VariableExpression } from "runescript-parser";
+import { CallExpression, DeclarationStatement, Literal, ReturnStatement, Script, StringPart, SwitchStatement, VariableExpression } from "runescript-parser";
 import { FileCache } from "../cache/FileCache.js";
 import { typeToSymbolType } from "../resource/symbolConfig.js";
 import { Type } from "../resource/enum/types.js";
 import { SymbolCache } from "../cache/SymbolCache.js";
+import { Position } from "vscode-languageserver-textdocument";
 
 export const ScriptResolver: Resolver = {
   resolveDefinitions,
@@ -44,11 +45,19 @@ function resolveDefinitions(parseResult: ParseResult, cache: WorkspaceCache): Da
       const scriptSymbol = buildSymbolFromDec(script.parsedScript.nameString, triggerType.symbolType, parseResult.fileInfo, source.line, source.column, source.endColumn, {info: script.info, signature: script.signature});
       resolvedDefs.push(resolveDefDataRange(source.column, end, source.line, scriptSymbol, triggerType.declaration));
     } else {
-      if (script.parsedScript.nameString.startsWith('_')) {
-        const name = script.parsedScript.nameString.substring(1);
-        const context = buildModifiedWordContext(script.parsedScript.nameString, '_');
-        const extraData = { symbolType: triggerType.symbolType, categoryName: name };
-        resolvedDefs.push(resolveRefDataRange(SymbolType.Category, source.column, end, source.line, name, parseResult.fileInfo.type, context, extraData));
+      const rawName = script.parsedScript.nameString;
+      if (rawName.startsWith('_')) {
+        if (rawName.length === 1) {
+          const name = `all ${triggerType.symbolType}s`;
+          const context = buildModifiedWordContext('_');
+          const extraData = { symbolType: triggerType.symbolType };
+          resolvedDefs.push(resolveRefDataRange(SymbolType.Category, source.column, end, source.line, name, parseResult.fileInfo.type, context, extraData));
+        } else {
+          const name = rawName.substring(1);
+          const context = buildModifiedWordContext(script.parsedScript.nameString, '_');
+          const extraData = { symbolType: triggerType.symbolType, categoryName: name };
+          resolvedDefs.push(resolveRefDataRange(SymbolType.Category, source.column, end, source.line, name, parseResult.fileInfo.type, context, extraData));
+        }
       } else {
         resolvedDefs.push(resolveRefDataRange(triggerType.symbolType, source.column, end, source.line, script.parsedScript.nameString, parseResult.fileInfo.type));
       }
@@ -58,6 +67,7 @@ function resolveDefinitions(parseResult: ParseResult, cache: WorkspaceCache): Da
     if (fileCache) {
       for (const param of (script.parsedScript.parameters ?? [])) {
         const paramSymbol = buildSymbolFromDec(param.name.text, SymbolType.LocalVar, parseResult.fileInfo, param.source.line, param.name.source.column, param.name.source.endColumn, {extraData: {type: param.typeToken.text}});
+        paramSymbol.comparisonTypes = [typeToSymbolType(param.typeToken.text as Type)];
         paramSymbol.block = `${param.typeToken.text} ${param.name.text} (parameter)`;
         fileCache.addLocalVariable(paramSymbol, param.source.line, param.name.source.column, param.name.source.endColumn);
       }
@@ -77,26 +87,37 @@ function resolveReferences(parseResult: ParseResult, cache: WorkspaceCache): Dat
   return resolvedRefs;
 }
 
+export function resolveSymbolTypeFromScriptPosition(parsedScript: Script, fileInfo: FileInfo, cache: WorkspaceCache, lineNum: number, index: number): SymbolType {
+  const resolvedRefs: DataRange<ResolvedData>[] = [];
+  const visitor = new RunescriptVisitor(resolvedRefs, fileInfo, cache, true);
+  parsedScript.accept(visitor);
+  visitor.finalize();
+  const node = findSmallestNodeAtPosition(parsedScript, lineNum, index);
+  return node !== null ? visitor.getNodeSymbolType(node) ?? SymbolType.Unknown : SymbolType.Unknown;
+}
+
 class RunescriptVisitor extends AstVisitor<void> {
   private readonly fileCache: FileCache | undefined;
   private readonly symbolCache: SymbolCache;
-  private readonly resolvedNodes: WeakSet<Node>;
+  private readonly resolvedNodes: WeakMap<Node, SymbolType>;
   private readonly unknownIdens: Set<Identifier>;
   private readonly exprTypes: WeakMap<Expression, SymbolType[]>;
   private readonly resolvedRefs: DataRange<ResolvedData>[];
   private readonly localVariableTypes: Map<string, SymbolType>;
   private readonly fileInfo: FileInfo;
+  private readonly dryRun: boolean;
 
-  constructor(resolvedRefs: DataRange<ResolvedData>[], fileInfo: FileInfo, cache: WorkspaceCache) {
+  constructor(resolvedRefs: DataRange<ResolvedData>[], fileInfo: FileInfo, cache: WorkspaceCache, dryRun = false) {
     super();
-    this.unknownIdens = new Set();
-    this.localVariableTypes = new Map();
-    this.resolvedNodes = new WeakSet();
+    this.unknownIdens = new Set<Identifier>();
+    this.localVariableTypes = new Map<string, SymbolType>();
+    this.resolvedNodes = new WeakMap<Node, SymbolType>();
     this.exprTypes = new WeakMap<Expression, SymbolType[]>();
     this.resolvedRefs = resolvedRefs;
     this.fileInfo = fileInfo;
     this.symbolCache = cache.getSymbolCache();
     this.fileCache = cache.getFileCache(fileInfo.fsPath);
+    this.dryRun = dryRun;
   }
 
   public finalize(): void {
@@ -105,6 +126,10 @@ class RunescriptVisitor extends AstVisitor<void> {
         this.resolveRefFromNode(SymbolType.Unknown, unknownIden, unknownIden.text);
       }
     });
+  }
+
+  public getNodeSymbolType(node: Node): SymbolType | undefined {
+    return this.resolvedNodes.get(node);
   }
 
   private resolveRefFromNode(symbolType: SymbolType, node: Node, name: string, isStar = false) {
@@ -117,13 +142,13 @@ class RunescriptVisitor extends AstVisitor<void> {
       name,
       this.fileInfo.type
     ));
-    this.resolvedNodes.add(node);
+    this.resolvedNodes.set(node, symbolType);
   }
 
   private resolveRefManual(symbolType: SymbolType, node: Node, name: string, line: number, start: number, end: number) {
     if (this.resolvedNodes.has(node)) return;
     this.resolvedRefs.push(resolveRefDataRange(symbolType, start, end, line, name, this.fileInfo.type));
-    this.resolvedNodes.add(node);
+    this.resolvedNodes.set(node, symbolType);
   }
 
   private getScript(node: Node): Script | null {
@@ -178,11 +203,11 @@ class RunescriptVisitor extends AstVisitor<void> {
 
   public visitScript(node: Script): void {
     this.localVariableTypes.clear();
-    this.resolvedNodes.add(node.trigger);
-    this.resolvedNodes.add(node.name);
+    this.resolvedNodes.set(node.trigger, SymbolType.Trigger);
+    this.resolvedNodes.set(node.name, SymbolType.Unknown);
     for (const param of (node.parameters ?? [])) {
       this.localVariableTypes.set(param.name.text, typeToSymbolType(param.typeToken.text as Type));
-      this.resolvedNodes.add(param.name);
+      this.resolvedNodes.set(param.name, SymbolType.Unknown);
     }
     super.visitScript(node);
   }
@@ -201,12 +226,15 @@ class RunescriptVisitor extends AstVisitor<void> {
   public visitCallExpression(node: CallExpression): void {
     if (node.kind === NodeKind.ProcCallExpression) {
       this.resolveRefFromNode(SymbolType.Proc, node.name, node.name.text);
+      this.resolveCall(node, SymbolType.Proc);
     }
     else if (node.kind === NodeKind.JumpCallExpression) {
       this.resolveRefFromNode(SymbolType.Label, node.name, node.name.text);
+      this.resolveCall(node, SymbolType.Label);
     }
     else if (node instanceof CommandCallExpression) {
       this.resolveRefFromNode(SymbolType.Command, node.name, node.nameString, node.isStar);
+      this.resolveCall(node, SymbolType.Command);
     }
     super.visitCallExpression(node); 
   }
@@ -257,9 +285,9 @@ class RunescriptVisitor extends AstVisitor<void> {
   }
 
   public visitVariableExpression(node: VariableExpression): void {
-    if (this.fileCache && node.kind === NodeKind.LocalVariableExpression) {
-      this.fileCache.addLocalVariableReference(node.name.text, node.name.source.line, node.name.source.column, node.name.source.endColumn);
-      this.resolvedNodes.add(node.name);
+    if ((this.dryRun || this.fileCache) && node.kind === NodeKind.LocalVariableExpression) {
+      if (!this.dryRun) this.fileCache!.addLocalVariableReference(node.name.text, node.name.source.line, node.name.source.column, node.name.source.endColumn);
+      this.resolvedNodes.set(node.name, SymbolType.LocalVar);
       const symbolType = this.localVariableTypes.get(node.name.text);
       if (symbolType) {
         this.exprTypes.set(node, [symbolType]);
@@ -280,14 +308,23 @@ class RunescriptVisitor extends AstVisitor<void> {
 
   public visitDeclarationStatement(node: DeclarationStatement): void {
     const type = node.typeToken.text;
-    if (this.fileCache && type.startsWith('def_')) {
+    let localVarType = SymbolType.Unknown;
+    if ((this.fileCache || this.dryRun) && type.startsWith('def_')) {
       const typeStr = type.substring(4);
       const localVarSymbol = buildSymbolFromDec(node.name.text, SymbolType.LocalVar, this.fileInfo, node.name.source.line, node.name.source.column, node.name.source.endColumn, {extraData: {type: typeStr}});
-      this.fileCache.addLocalVariable(localVarSymbol, node.name.source.line, node.name.source.column, node.name.source.endColumn);
-      this.resolvedNodes.add(node.name);
-      this.localVariableTypes.set(node.name.text, typeToSymbolType(typeStr as Type));
+      localVarSymbol.block = `${typeStr} ${node.name.text}`;
+      localVarSymbol.comparisonTypes = [typeToSymbolType(typeStr as Type)];
+      if (!this.dryRun) this.fileCache!.addLocalVariable(localVarSymbol, node.name.source.line, node.name.source.column, node.name.source.endColumn);
+      this.resolvedNodes.set(node.name, SymbolType.LocalVar);
+      localVarType = typeToSymbolType(typeStr as Type);
+      this.localVariableTypes.set(node.name.text, localVarType);
     }
+
     super.visitDeclarationStatement(node);
+
+    if (node.initializer instanceof Identifier) {
+      this.resolveRefFromNode(localVarType, node.initializer, node.initializer.text);
+    }
   } 
 
   public visitSwitchStatement(node: SwitchStatement): void {
@@ -300,21 +337,6 @@ class RunescriptVisitor extends AstVisitor<void> {
       }
     }
     super.visitSwitchStatement(node);
-  }
-
-  public visitProcCallExpression(node: ProcCallExpression): void {
-    this.resolveCall(node, SymbolType.Proc);
-    super.visitProcCallExpression(node);
-  }
-
-  public visitJumpCallExpression(node: JumpCallExpression): void {
-    this.resolveCall(node, SymbolType.Label);
-    super.visitJumpCallExpression(node);
-  }
-
-  public visitCommandCallExpression(node: CommandCallExpression): void {
-    this.resolveCall(node, SymbolType.Command);
-    super.visitCommandCallExpression(node);
   }
 
   public visitReturnStatement(node: ReturnStatement): void {
@@ -335,6 +357,18 @@ class RunescriptVisitor extends AstVisitor<void> {
       }
     }
     super.visitReturnStatement(node);
+  }
+
+  public visitAssignmentStatement(assignmentStatement: AssignmentStatement): void {
+    if (assignmentStatement.expressions.length > 1) {
+      warn(`Unable to handle assignment statement with multiple expressions. line=${assignmentStatement.source.line} file=${this.fileInfo.fsPath}`);
+    } else {
+      // assignmentStatement.vars
+      // (diagnostics) length of variables should match the length of the expression return types and types should match
+      // enchantment.rs2
+      // $final_obj, $anim, $spotanim, $sound = ~magic_spell_search_convertobj($spell_data, $initial_obj);
+    }
+    super.visitAssignmentStatement(assignmentStatement);
   }
 
   public visitCalcExpression(node: CalcExpression): void {
@@ -384,5 +418,6 @@ class RunescriptVisitor extends AstVisitor<void> {
   private resolveFromExpressionType(target: Identifier, types?: SymbolType[]): void {
     if (!types || types.length === 0) return;
     this.resolveRefFromNode(types[0], target, target.text);
+    this.exprTypes.set(target, types);
   }
 }

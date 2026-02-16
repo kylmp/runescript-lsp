@@ -1,15 +1,27 @@
 import type { Connection, TextDocuments } from "vscode-languageserver/node.js";
 import type { TextDocument } from "vscode-languageserver-textdocument";
 import { FileChangeType, FileEvent, TextDocumentChangeEvent } from "vscode-languageserver/node.js";
-import { getDocuments, isOpenDocument } from "../utils/documentUtils.js";
-import { uriToFileInfo } from "../utils/fileUtils.js";
-import { logFileEvent } from "../utils/logger.js";
-import { disposeFile, rebuildFile } from "../manager.js";
-import { getIsInitializing } from "../utils/initUtils.js";
+import { getDocuments, isOpenDocument } from "../../utils/documentUtils.js";
+import { uriToFileInfo } from "../../utils/fileUtils.js";
+import { logFileEvent } from "../../utils/logger.js";
+import { disposeFile, rebuildFile } from "../../manager.js";
+import { getIsInitializing } from "../../utils/initUtils.js";
 
 const lastHandledVersions = new Map<string, number>();
 const pendingChangeTimers = new Map<string, NodeJS.Timeout>();
 const CHANGE_DEDUP_MS = 200;
+const rebuildWaiters = new Map<string, { promise: Promise<void>; resolve: () => void }>();
+
+export function waitForFileRebuild(uri: string): Promise<void> {
+  const existing = rebuildWaiters.get(uri);
+  if (existing) return existing.promise;
+  let resolve!: () => void;
+  const promise = new Promise<void>(r => {
+    resolve = r;
+  });
+  rebuildWaiters.set(uri, { promise, resolve });
+  return promise;
+}
 
 export function registerFileEventHandlers(documents: TextDocuments<TextDocument>, connection: Connection): void {
   documents.onDidOpen(handleDocumentOpened);
@@ -70,7 +82,19 @@ function handleDocumentChanged(event: TextDocumentChangeEvent<TextDocument>) {
       const latestDoc = getDocuments().get(event.document.uri);
       if (!latestDoc) return;
       logFileEvent('active file changed', fileInfo);
-      rebuildFile(fileInfo, latestDoc.getText());
+      const current = rebuildWaiters.get(event.document.uri) ?? (() => {
+        let resolve!: () => void;
+        const promise = new Promise<void>(r => {
+          resolve = r;
+        });
+        const waiter = { promise, resolve };
+        rebuildWaiters.set(event.document.uri, waiter);
+        return waiter;
+      })();
+      void rebuildFile(fileInfo, latestDoc.getText()).finally(() => {
+        current.resolve();
+        rebuildWaiters.delete(event.document.uri);
+      });
     }, CHANGE_DEDUP_MS)
   );
 }

@@ -32,10 +32,6 @@ export const enumPostProcessor: PostProcessor = function(symbol: RunescriptSymbo
   symbol.comparisonTypes = [outputSymbolType];
 };
 
-export const localVarPostProcessor: PostProcessor = function(symbol: RunescriptSymbol): void {
-  symbol.comparisonTypes = [typeToSymbolType(symbol.extraData!.type as Type)];
-};
-
 export const gameVarPostProcessor: PostProcessor = function(symbol: RunescriptSymbol): void {
   const type = ((symbol.configLines?.get('type') ?? ['int'])[0] ?? 'int') as Type; // default value is int if not defined
   symbol.comparisonTypes = [typeToSymbolType(type)];
@@ -51,17 +47,14 @@ export const paramPostProcessor: PostProcessor = function(symbol: RunescriptSymb
 
 export const categoryPostProcessor: PostProcessor = function(symbol: RunescriptSymbol): void {
   const extraData = symbol.extraData;
-  if (extraData && extraData.symbolType && extraData.categoryName) {
-    symbol.value = `This script applies to all **${extraData.symbolType}** with \`category=${extraData.categoryName}\``;
+  if (extraData && extraData.symbolType) {
+    symbol.value = `This script applies to all **${extraData.symbolType}**`;
+    if (extraData.categoryName) symbol.value += ` with \`category=${extraData.categoryName}\``;
   }
 };
 
 export const componentPostProcessor: PostProcessor = function(symbol: RunescriptSymbol): void {
   symbol.info = `A component of the **${symbol.qualifier}** interface`;
-};
-
-export const rowPostProcessor: PostProcessor = function(symbol: RunescriptSymbol): void {
-  symbol.info = `A row int the **${symbol.qualifier}** table`;
 };
 
 export const columnPostProcessor: PostProcessor = function(symbol: RunescriptSymbol): void {

@@ -19,6 +19,10 @@ export function getScriptTriggerSymbol(trigger: string): TriggerSymbolType | und
   return runescriptTrigger[trigger] ?? undefined;
 }
 
+export function getAllTriggers(): string[] {
+  return Object.keys(runescriptTrigger);
+}
+
 function buildMatchForTrigger(name: string, symbolType: SymbolType, declaration: boolean): TriggerSymbolType {
   return { name, symbolType, declaration };
 }

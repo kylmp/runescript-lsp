@@ -18,6 +18,10 @@ export const scriptFileParser = (request: ParseRequest): ParseResult | undefined
   return scriptFile ? { kind: ParserKind.Script, data: scriptFile, fileInfo: request.fileInfo } : undefined;
 }
 
+export function parseScript(scriptText: string): Script | undefined {
+  return ScriptParser.parseScriptText(scriptText, { tolerant: true }) ?? undefined;
+}
+
 function parseScriptFile(lines: string[]): RunescriptFile | undefined {
   const scripts: RunescriptScript[] = [];
   const parserResult = ScriptParser.parseFileTextLines(lines, { tolerant: true }) ?? undefined;

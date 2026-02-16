@@ -71,8 +71,17 @@ export class SymbolCache {
       currentSymbol = symbol;
     }
 
+    // New declaration, so copy over all the potentially new data to the existing symbol ref
     if (!currentSymbol.declaration) {
       currentSymbol.declaration = symbol.declaration;
+      currentSymbol.block = symbol.block;
+      currentSymbol.info = symbol.info;
+      currentSymbol.value = symbol.value;
+      currentSymbol.extraData = symbol.extraData;
+      currentSymbol.comparisonTypes = symbol.comparisonTypes;
+      currentSymbol.signature = symbol.signature;
+      currentSymbol.dynamicConfigTypes = symbol.dynamicConfigTypes;
+      currentSymbol.configLines = symbol.configLines;
     }
     currentSymbol.cacheName = symbol.cacheName;
 

@@ -1,9 +1,9 @@
 import type { Connection } from "vscode-languageserver/node.js";
 import { NotificationType } from "vscode-languageserver/node.js";
-import { rebuildWorkspace } from "../manager.js";
-import { mapUri } from "../utils/fileUtils.js";
-import { getWorkspaceFolders } from "../utils/workspaceUtils.js";
-import { log } from "../utils/logger.js";
+import { rebuildWorkspace } from "../../manager.js";
+import { mapUri } from "../../utils/fileUtils.js";
+import { getWorkspaceFolders } from "../../utils/workspaceUtils.js";
+import { log } from "../../utils/logger.js";
 
 export const GitBranchChanged = new NotificationType<{ workspaceUri?: string }>(
   "runescript/gitBranchChanged",

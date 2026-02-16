@@ -75,15 +75,14 @@ export async function rebuildWorkspace(workspace: string) {
   // Resolve and cache symbols
   start = performance.now();
   let resolved = 0;
-  const resolvingStep = (100 - parsingEndPct) / 8;
-  resolveFiles(constants, ResolutionMode.All, cache, progress, 82, "Resolving constants");
-  resolveFiles(gameVars, ResolutionMode.All, cache, progress, 84, "Resolving game vars");
-  resolveFiles(tables, ResolutionMode.All, cache, progress, 86, "Resolving dbtables");
-  resolveFiles(configs, ResolutionMode.Definitions, cache, progress, 88, "Resolving config definitions");
-  resolveFiles(scripts, ResolutionMode.Definitions, cache, progress, 90, "Resolving script definitions");
-  resolveFiles(configs, ResolutionMode.References, cache, progress, 92, "Resolving config references");
-  resolveFiles(scripts, ResolutionMode.References, cache, progress, 94, "Resolving script references");
-  resolveFiles(packs, ResolutionMode.All, cache, progress, 96, "Resolving pack files");
+  resolved += resolveFiles(constants, ResolutionMode.All, cache, progress, 82, "Resolving constants");
+  resolved += resolveFiles(gameVars, ResolutionMode.All, cache, progress, 84, "Resolving game vars");
+  resolved += resolveFiles(tables, ResolutionMode.All, cache, progress, 86, "Resolving dbtables");
+  resolved += resolveFiles(configs, ResolutionMode.Definitions, cache, progress, 88, "Resolving config definitions");
+  resolved += resolveFiles(scripts, ResolutionMode.Definitions, cache, progress, 90, "Resolving script definitions");
+  resolved += resolveFiles(configs, ResolutionMode.References, cache, progress, 92, "Resolving config references");
+  resolved += resolveFiles(scripts, ResolutionMode.References, cache, progress, 94, "Resolving script references");
+  resolved += resolveFiles(packs, ResolutionMode.All, cache, progress, 96, "Resolving pack files");
   log(`Rescan: Resolved ${resolved} symbols in ${formatMs(performance.now() - start)}`);
 
   // Report diagnostics?
@@ -98,7 +97,7 @@ export async function rebuildWorkspace(workspace: string) {
 
 function resolveFiles(parseResults: ParseResult[], resolutionMode: ResolutionMode, cache: WorkspaceCache, progress: ProgressHandle, percent: number, progressMsg: string): number {
   let symbolCount = 0;
-  parseResults.forEach(parsedResult => symbolCount = resolveParsedResult(parsedResult, cache, resolutionMode));
+  parseResults.forEach(parsedResult => symbolCount += resolveParsedResult(parsedResult, cache, resolutionMode));
   progress.report(percent, progressMsg);
   return symbolCount;
 }

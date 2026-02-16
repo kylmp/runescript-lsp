@@ -5,7 +5,7 @@ import { SymbolType } from './enum/symbolTypes.js';
 import { Type } from './enum/types.js';
 import { Language } from './enum/languages.js';
 import { FileType } from './enum/fileTypes.js';
-import { categoryPostProcessor, columnPostProcessor, componentPostProcessor, coordPostProcessor, enumPostProcessor, fileNamePostProcessor, gameVarPostProcessor, localVarPostProcessor, paramPostProcessor, rowPostProcessor } from './symbolPostProcessors.js';
+import { categoryPostProcessor, columnPostProcessor, componentPostProcessor, coordPostProcessor, enumPostProcessor, fileNamePostProcessor, gameVarPostProcessor, paramPostProcessor } from './symbolPostProcessors.js';
 
 export function getSymbolConfig(symbolType: SymbolType): SymbolConfig {
   return symbolConfigs.get(symbolType) ?? symbolConfigs.get(SymbolType.Unknown)!;
@@ -118,10 +118,9 @@ const symbolConfigs = new Map<SymbolType, SymbolConfig>([
   }],
 
   [SymbolType.Dbrow, {
-    symbolType: SymbolType.Dbrow, types: [Type.Dbrow], fileTypes: [FileType.Dbrow], cache: true, allowRename: true, qualifiedName: true,
+    symbolType: SymbolType.Dbrow, types: [Type.Dbrow], fileTypes: [FileType.Dbrow], cache: true, allowRename: true,
     hoverConfig: { declarationItems: [DisplayItem.Title, DisplayItem.Info], referenceItems: [DisplayItem.Title, DisplayItem.Info, DisplayItem.Codeblock], language: Language.Dbrowconfig, configInclusions: ['table'] },
     semanticTokenConfig: { declaration: SemanticTokenType.Function },
-    postProcessor: rowPostProcessor
   }],
 
   [SymbolType.Dbtable, {
@@ -195,7 +194,6 @@ const symbolConfigs = new Map<SymbolType, SymbolConfig>([
   [SymbolType.LocalVar, {
     symbolType: SymbolType.LocalVar, types: [], fileTypes: [FileType.Rs2], cache: false, allowRename: true,
     hoverConfig: { declarationItems: [DisplayItem.Title, DisplayItem.Codeblock], referenceItems: [DisplayItem.Title, DisplayItem.Codeblock], language: Language.Runescript },
-    postProcessor: localVarPostProcessor
   }],
 
   [SymbolType.Coordinates, {
